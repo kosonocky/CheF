@@ -4,6 +4,8 @@ _archive
 scripts/surechembl_summarizations/*.csv
 data/*.csv
 data/*.txt
+results/*.csv
+results/*.pkl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
