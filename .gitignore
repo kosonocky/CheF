@@ -1,4 +1,9 @@
 *.DS_Store
+_archive
+
+scripts/surechembl_summarizations/*.csv
+data/*.csv
+data/*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
