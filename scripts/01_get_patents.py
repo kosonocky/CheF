@@ -199,7 +199,7 @@ def main(args):
             df = main_df[i:i+batch_size]
             print(f"\nINFO: Processing {i} to {i+batch_size}...")
 
-        output_path = f"{output_dir}/schembl_b{str(count).zfill(5)}_i{str(i).zfill(9)}.csv"
+        output_path = f"{output_dir}/schembl_pids_b{str(count).zfill(5)}_i{str(i).zfill(9)}.pkl"
         
         with mp.Pool(n_cpus) as p:
             print("INFO: Getting cids...")
@@ -214,7 +214,7 @@ def main(args):
         df['coverage'] = coverage
     
         df = df[df["coverage"] == 1].reset_index(drop=True)
-        df[["smiles", "cids", "patent_ids"]].to_csv(output_path, index=False)
+        df[["smiles", "cids", "patent_ids"]].to_pickle(output_path)
     end = time.time()
     print(f"Time elapsed: {end - start} seconds")
     print("Success!\n")
