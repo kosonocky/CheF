@@ -6,6 +6,10 @@ data/*.csv
 data/*.txt
 results/*.csv
 results/*.pkl
+data/CID-InChI-Key
+data/CID-Patent
+data/CID-PMID
+data/*.gz
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

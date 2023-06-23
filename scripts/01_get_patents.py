@@ -1,14 +1,15 @@
+import sys
 import time
 import requests
 import argparse
-import pandas as pd
-pd.options.mode.chained_assignment = None  # default='warn'
-import multiprocessing as mp
-import openai
-from bs4 import BeautifulSoup
-import sys
 from pathlib import Path
 from itertools import repeat
+import multiprocessing as mp
+
+import pandas as pd
+pd.options.mode.chained_assignment = None  # default='warn'
+import openai
+from bs4 import BeautifulSoup
 
 
 def load_data(input_:str, input_type:str = "csv") -> pd.DataFrame:
@@ -64,6 +65,8 @@ def pub_api_call(url, params = None, _n_restarts = 0):
         response = requests.get(url)
     if response.status_code == 503: # 503 returned when PubChem API is overloaded
         if _n_restarts <= 5:
+            print(response.headers)
+            sys.stdout.flush()
             if _n_restarts > 3:
                 print(f"WARNING: PubChem API Failed and will restart - n_restarts: {_n_restarts}")
                 sys.stdout.flush()
@@ -169,7 +172,6 @@ def patent_coverage(patent_ids, max_patents_per_mol=10):
 
 # main for this file is deprecated. See pipeline.py
 def main(args):
-    start = time.time()
 
     # Unpack args
     input_ = args.input
@@ -189,9 +191,10 @@ def main(args):
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     main_df = load_data(input_, input_type)
 
-    n_cpus = 6
+    n_cpus = 4 # 14 too high. Locks out after a while.
 
-    for count, i in enumerate(range(0, len(main_df), batch_size)):
+    for i in range(0, len(main_df), batch_size):
+        start = time.time()
         if i + batch_size > len(main_df):
             df = main_df[i:]
             print(f"\nINFO: Processing {i} to {len(main_df)}...")
@@ -199,7 +202,7 @@ def main(args):
             df = main_df[i:i+batch_size]
             print(f"\nINFO: Processing {i} to {i+batch_size}...")
 
-        output_path = f"{output_dir}/schembl_pids_b{str(count).zfill(5)}_i{str(i).zfill(9)}.pkl"
+        output_path = f"{output_dir}/schembl_pids_i{str(i).zfill(9)}.csv"
         
         with mp.Pool(n_cpus) as p:
             print("INFO: Getting cids...")
@@ -214,9 +217,10 @@ def main(args):
         df['coverage'] = coverage
     
         df = df[df["coverage"] == 1].reset_index(drop=True)
-        df[["smiles", "cids", "patent_ids"]].to_pickle(output_path)
-    end = time.time()
-    print(f"Time elapsed: {end - start} seconds")
+        df[["smiles", "cids", "patent_ids"]].to_csv(output_path, index=False)
+        end = time.time()
+        print(f"Time elapsed: {end - start} seconds")
+    
     print("Success!\n")
 
     
