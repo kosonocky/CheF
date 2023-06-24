@@ -39,22 +39,9 @@ def main():
     df = df[df['cid'] != None].reset_index(drop=True)
     print(f"Time Elapsed: {time.time() - t0} seconds\n")
 
-    print("Loading CID to Patent Dictionary")
-    cid_to_patents = defaultdict(set)
-    with open('../data/CID-Patent') as f:
-        for line in f:
-            (cid, patent) = line.split()
-            cid_to_patents[cid].update(patent) # there are multiple patents per cid
-    print(f"Time Elapsed: {time.time() - t0} seconds\n")
-
-    print("CID to Patent")
-    df['patent_ids'] = df['cid'].parallel_apply(lambda x: cid_to_patents[x] if x in cid_to_patents else None)
-    df = df[df['patent_ids'] != None].reset_index(drop=True)
-    print(f"Time Elapsed: {time.time() - t0} seconds\n")
-
     print("Saving")
-    df["smiles", "cid", "patent_ids"].to_pickle('../data/surechembl_smiles_canon_chiral_randomized_patents.pkl')
-    df["smiles", "cid", "patent_ids"].to_csv('../data/surechembl_smiles_canon_chiral_randomized_patents.csv', index=False)
+    df[["smiles", "cid"]].to_pickle('../data/surechembl_smiles_canon_chiral_randomized_cids.pkl')
+    df[["smiles", "cid"]].to_csv('../data/surechembl_smiles_canon_chiral_randomized_cids.csv', index=False)
     print(f"Time Elapsed: {time.time() - t0} seconds\n")
 
 
