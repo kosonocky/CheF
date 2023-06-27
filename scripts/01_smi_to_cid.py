@@ -19,32 +19,28 @@ def mol_to_inchi_key(smi):
 
 
 def main():
-    t0 = time.time()
+    t_curr = time.time()
     df = pd.read_csv('../data/surechembl_smiles_canon_chiral_randomized.csv')
     df = df.rename(columns={"SMILES": "smiles"})
+    print(f"Loaded smiles into dataframe. Time: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds\n")
 
-    print("SMILES to InChI Key")
     df['inchi_key'] = df['smiles'].parallel_apply(mol_to_inchi_key)
     df = df[df['inchi_key'] != None].reset_index(drop=True)
-    print(f"Time Elapsed: {time.time() - t0} seconds\n")
+    print(f"smiles mapped to inchi_key. Time: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds\n")
     
-    print("Loading InChI Key to CID Dictionary")
     inchi_to_cid = {}
     with open('../data/CID-InChI-Key') as f:
         for line in f:
             (val, _, key) = line.split()
             inchi_to_cid[key] = val
-    print(f"Time Elapsed: {time.time() - t0} seconds\n")
+    print(f"Loaded CID-InChI-key dictionary. Time: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds\n")
 
-    print("InChI Key to CID")
     df['cid'] = df['inchi_key'].parallel_apply(lambda x: inchi_to_cid[x] if x in inchi_to_cid else None)
-    df = df[df['cid'] != None].reset_index(drop=True)
-    print(f"Time Elapsed: {time.time() - t0} seconds\n")
+    df = df[df['cid'] != None].dropna().reset_index(drop=True)
+    print(f"Mapped cid to inchi_key. Time: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds\n")
 
-    print("Saving")
-    df[["smiles", "cid"]].to_pickle('../data/surechembl_smiles_canon_chiral_randomized_cids.pkl')
     df[["smiles", "cid"]].to_csv('../data/surechembl_smiles_canon_chiral_randomized_cids.csv', index=False)
-    print(f"Time Elapsed: {time.time() - t0} seconds\n")
+    print(f"Saved as csv. Time: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds\n")
 
 
 

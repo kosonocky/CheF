@@ -11,7 +11,7 @@ from collections import defaultdict
 
 
 def main():
-    t0 = time.time()
+    t_curr = time.time()
 
     # NOTE This section of code creates the CID-Patent ID Dictionary. It is commented out because it is saved/loaded as pkl in future
     # print("Loading CID to Patent Dictionary")
@@ -22,41 +22,38 @@ def main():
     #         cid_to_patents[int(cid)].update([patent]) # there are multiple patents per cid
     # with open("cid_patent_dict.pkl", 'wb') as f:
     #     pkl.dump(cid_to_patents, f)
+    # print(f"Loaded dictionary and saved as pkl. Time: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds\n")
     # print("Saved to pkl")
-    # print(f"Time Elapsed: {time.time() - t0} seconds\n")
 
     # NOTE This section of code takes the CID-Patent ID Dictionary and removes all entries > 10 patents
+    # # This is done to ignore over-patented molecules that will results in less accurate functional descriptors
     # # remove all k,v pairs in cid_to_patents that have more than 10 patents in value set
     # cid_to_patents_l10p = {k: v for k, v in cid_to_patents.items() if len(v) <= 10}
     # print("Removed all k,v pairs in cid_to_patents that have more than 10 patents in value set")
     # with open("cid_patent_dict_l10p.pkl", 'wb') as f:
     #     pkl.dump(cid_to_patents_l10p, f)
-    # print(f"Time Elapsed: {time.time() - t0} seconds\n")
+    # print(f"Removed entries w/ more than 10 patents. Time: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds\n")
 
-    with open("cid_patent_dict.pkl", "rb") as f:
+    # Open the CID-Patent ID Dictionary with only 10 or less patents per CID
+    with open("cid_patent_dict_l10p.pkl", "rb") as f:
         cid_to_patents = pkl.load(f)
     print("Loaded pkl")
-    print(f"Time Elapsed: {time.time() - t0} seconds\n")
+    print(f"Loaded dict pkl. Time: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds\n")
 
+    # Load the CID-SMILES DataFrame
     df = pd.read_csv('../data/surechembl_smiles_canon_chiral_randomized_cids.csv')
-    df = df.dropna().reset_index(drop=True)
-    df["cid"] = df["cid"].map(int)
-    # make cid index for faster mapping later on
-    df = df.set_index("cid")
+    df = df.dropna().reset_index(drop=True) # drop all rows with NaN
+    df["cid"] = df["cid"].map(int) # convert cid to int
+    df = df.set_index("cid") # make cid col the index for faster mapping. Make sure not to reset index after this point or else cid will be lost
+    print(f"Loaded CID-SMILES dataframe. Time: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds\n")
 
-    print("df loaded")
-    print(f"Time Elapsed: {time.time() - t0} seconds\n")
-
+    # Map CID to Patent ID dictionary to df
     df['patent_ids'] = df.index.map(lambda x: cid_to_patents.get(x))
-    df = df[df['patent_ids'] != None] # do not reset index, they represent cid
-    df = df.dropna()
-    print("Patents mapped to CID")
-    print(f"Time Elapsed: {time.time() - t0} seconds\n")
+    df = df[df['patent_ids'] != None].dropna() # do not reset index, they represent cid
+    print(f"Patents mapped to CID. Time: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds\n")
 
-    print("Saving")
-    df[["smiles", "patent_ids"]].to_pickle(f'../data/surechembl_smiles_canon_chiral_randomized_patents.pkl')
     df[["smiles", "patent_ids"]].to_csv(f'../data/surechembl_smiles_canon_chiral_randomized_patents.csv', index=True)
-    print(f"Time Elapsed: {time.time() - t0} seconds\n")
+    print(f"Saved as csv. Time: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds\n")
 
 
 
