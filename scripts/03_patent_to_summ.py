@@ -47,6 +47,10 @@ def google_patents_api_call(patent_id, _restarts = 0, _original_patent_id = ""):
                     # So this code changes it from "USyyyym..." to "USyyyy0m..."
                     patent_id = _original_patent_id[:6] + "0" + _original_patent_id[6:]
                     return google_patents_api_call(patent_id, _restarts = 1, _original_patent_id = _original_patent_id)
+                elif _restarts == 1:
+                    # very few patents (~1/1k?) will need this correction. Some are missing the final 1 digit after the letter
+                    patent_id = _original_patent_id + "1"
+                    return google_patents_api_call(patent_id, _restarts = 2, _original_patent_id = _original_patent_id)
             elif patent_id[:2] == "WO":
                 # some WO patents are missing the first two digits of the year. This code tries 19yy, then 20yy if 19yy fails
                 if _restarts == 0:
@@ -54,14 +58,18 @@ def google_patents_api_call(patent_id, _restarts = 0, _original_patent_id = ""):
                     patent_id = _original_patent_id[:2] + "19" + _original_patent_id[2:]
                     return google_patents_api_call(patent_id, _restarts = 1, _original_patent_id = _original_patent_id)
                 elif _restarts == 1:
-                    # eg. WO0051639A2 -> WO200051639A2
-                    patent_id = _original_patent_id[:2] + "20" + _original_patent_id[2:]
+                    # eg. WO9932450A1 -> WO1999032450A1
+                    patent_id = _original_patent_id[:2] + "19" + _original_patent_id[2:4] + "0" + _original_patent_id[4:]
                     return google_patents_api_call(patent_id, _restarts = 2, _original_patent_id = _original_patent_id)
                 elif _restarts == 2:
-                    # eg. WO9932450A1 -> WO1999032450A1
-                    patent_id = _original_patent_id[:2] + "20" + _original_patent_id[2:6] + "0" + _original_patent_id[6:]
+                    # eg. WO0051639A2 -> WO200051639A2
+                    patent_id = _original_patent_id[:2] + "20" + _original_patent_id[2:]
                     return google_patents_api_call(patent_id, _restarts = 3, _original_patent_id = _original_patent_id)
-    print(f"{response.status_code} ERROR for {_original_patent_id}")
+                elif _restarts == 3:
+                    # eg. WO9932450A1 -> WO1999032450A1
+                    patent_id = _original_patent_id[:2] + "20" + _original_patent_id[2:4] + "0" + _original_patent_id[4:]
+                    return google_patents_api_call(patent_id, _restarts = 4, _original_patent_id = _original_patent_id)
+    print(f"{response.status_code} ERROR for original ID: {_original_patent_id}. Last tested ID: {patent_id}")
     return response
 
 
@@ -248,7 +256,7 @@ def summarizations_to_str(summarizations):
 
 def main():
     t_curr = time.time()
-    output_dir = "surechembl_smiles_canon_chiral_randomized_patents_l10p_summarizations"
+    output_dir = "../results/surechembl_smiles_canon_chiral_randomized_patents_l10p_summarizations"
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     head_n = 1000
     desc_len = 3500
@@ -264,7 +272,7 @@ def main():
     print(f"Time to read in data: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds.")
 
 
-    n_cpus = 6
+    n_cpus = 12
     print(f"INFO: Using {n_cpus} CPUs")
     t0 = time.time()
     with mp.Pool(n_cpus) as p:
