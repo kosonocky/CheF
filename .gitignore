@@ -11,6 +11,7 @@ data/CID-InChI-Key
 data/CID-Patent
 data/CID-PMID
 data/*.gz
+results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
