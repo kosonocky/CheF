@@ -8,6 +8,8 @@ from collections import defaultdict
 
 pandarallel.initialize(progress_bar=False)
 
+# NOTE Need to update to remove pandarallel and instead map on index. Wayyyy faster that way.
+
 def mol_to_inchi_key(smi):
     try:
         mol = Chem.MolFromSmiles(smi)
