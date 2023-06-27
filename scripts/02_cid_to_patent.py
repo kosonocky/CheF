@@ -52,7 +52,7 @@ def main():
     df = df[df['patent_ids'] != None].dropna() # do not reset index, they represent cid
     print(f"Patents mapped to CID. Time: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds\n")
 
-    df[["smiles", "patent_ids"]].to_csv(f'../data/surechembl_smiles_canon_chiral_randomized_patents.csv', index=True)
+    df[["smiles", "patent_ids"]].to_csv(f'../data/surechembl_smiles_canon_chiral_randomized_patents_l10p.csv', index=True)
     print(f"Saved as csv. Time: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds\n")
 
 
