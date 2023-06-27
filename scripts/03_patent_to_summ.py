@@ -168,6 +168,7 @@ def chatgpt(api_key, model = "gpt-3.5-turbo", system_prompt = "", user_prompt = 
             tries += 1
             time.sleep(5)
             if tries > 10:
+                print(e)
                 return "API REQUEST ERROR"
             else:
                 pass
@@ -211,14 +212,17 @@ def summarization_wrapper(patent_info, api_key, model = "gpt-3.5-turbo", system_
         return patent_info
     summarizations = dict()
     for key, value in patent_info.items():
-        user_prompt_complete = f"{user_prompt}\n\nAbstract:\n{value['abstract']}\n\nDescription:\n{value['description'][:desc_len]}"
+        if len(value["description"]) > desc_len:
+            user_prompt_complete = f"{user_prompt}\n\nAbstract:\n{value['abstract']}\n\nDescription:\n{value['description'][:desc_len]}"
+        else:
+            user_prompt_complete = f"{user_prompt}\n\nAbstract:\n{value['abstract']}\n\nDescription:\n{value['description']}"
         summ = chatgpt(api_key = api_key,
                         model = model,
                         system_prompt = system_prompt,
                         user_prompt = user_prompt_complete,
                         gpt_temperature = gpt_temperature)
         if summ == "API REQUEST ERROR":
-            print(f"API REQUEST ERROR FOR {key, value}. FAILED 10 TIMES.")
+            print(f"API REQUEST ERROR FOR {key}. FAILED 10 TIMES.")
         summarizations.update({key: summ})
     return summarizations
 
@@ -247,8 +251,8 @@ def summarizations_to_str(summarizations):
     s_list = [s.split(' / ') for s in s_list]
     # flatten list
     s_list = [item for sublist in s_list for item in sublist]
-    # remove empty strings and 'NA'
-    s_list = [s for s in s_list if s not in ['', 'NA']]
+    # remove empty strings and 'NA', and "API REQUEST ERROR"
+    s_list = [s for s in s_list if s not in ['', 'NA', 'API REQUEST ERROR']]
     return str(set(s_list))
 
 
@@ -258,7 +262,7 @@ def main():
     t_curr = time.time()
     output_dir = "../results/surechembl_smiles_canon_chiral_randomized_patents_l10p_summarizations"
     Path(output_dir).mkdir(parents=True, exist_ok=True)
-    head_n = 1000
+    head_n = 100
     desc_len = 3500
     gpt_temperature = 0
     gpt_model = "gpt-3.5-turbo"
@@ -271,27 +275,19 @@ def main():
     df["patent_ids"] = df["patent_ids"].map(literal_eval)
     print(f"Time to read in data: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds.")
 
-
     n_cpus = 12
     print(f"INFO: Using {n_cpus} CPUs")
     t0 = time.time()
     with mp.Pool(n_cpus) as p:
         patent_info = p.map(get_patent_info, df["patent_ids"].tolist())
         print(f"Time to get patent info: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds.")
-        # summarization_sources = p.starmap(summarization_wrapper, zip(patent_info, repeat(api_key), repeat(gpt_model), repeat(gpt_summ_system_prompt), repeat(gpt_summ_user_prompt), repeat(desc_len), repeat(gpt_temperature)))
-        # summarizations = p.map(summarizations_to_str, summarization_sources)
-        # print(f"Time to get summarizations: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds.")
-    # df["summarization_sources"] = [s for s in summarization_sources]
-    # df["summarizations"] = [s for s in summarizations]
-    # df[["smiles", "patent_ids", "summarization_sources", "summarizations"]].to_csv(f"{output_dir}/surechembl_summarizations_top-{head_n}_{gpt_model}_desc-{desc_len}.csv", index=False)
-    # df[["smiles", "patent_ids", "summarization_sources", "summarizations"]].to_csv(f"{output_dir}/surechembl_summarizations_top-{head_n}_{gpt_model}_desc-{desc_len}.csv", index=False)
-    # print(f"Time to save: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds.")
-
-
-
-            #     if desc_len < len(description):
-            #         description = description[:desc_len]
-
+        summarization_sources = p.starmap(summarization_wrapper, zip(patent_info, repeat(api_key), repeat(gpt_model), repeat(gpt_summ_system_prompt), repeat(gpt_summ_user_prompt), repeat(desc_len), repeat(gpt_temperature)))
+        summarizations = p.map(summarizations_to_str, summarization_sources)
+        print(f"Time to get summarizations: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds.")
+    df["summarization_sources"] = [s for s in summarization_sources]
+    df["summarizations"] = [s for s in summarizations]
+    df[["smiles", "cid", "patent_ids", "summarization_sources", "summarizations"]].to_csv(f"{output_dir}/surechembl_summarizations_top-{head_n}_{gpt_model}_desc-{desc_len}.csv", index=True)
+    print(f"Time to save: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds.")
 
 
 if __name__ == "__main__":
