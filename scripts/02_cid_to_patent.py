@@ -13,7 +13,7 @@ from collections import defaultdict
 def main():
     t_curr = time.time()
 
-    # NOTE This section of code creates the CID-Patent ID Dictionary. It is commented out because it is saved/loaded as pkl in future
+    # # NOTE This section of code creates the CID-Patent ID Dictionary. It is commented out because it is saved/loaded as pkl in future
     # print("Loading CID to Patent Dictionary")
     # cid_to_patents = defaultdict(set)
     # with open('../data/CID-Patent') as f:
@@ -25,7 +25,7 @@ def main():
     # print(f"Loaded dictionary and saved as pkl. Time: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds\n")
     # print("Saved to pkl")
 
-    # NOTE This section of code takes the CID-Patent ID Dictionary and removes all entries > 10 patents
+    # # NOTE This section of code takes the CID-Patent ID Dictionary and removes all entries > 10 patents
     # # This is done to ignore over-patented molecules that will results in less accurate functional descriptors
     # # remove all k,v pairs in cid_to_patents that have more than 10 patents in value set
     # cid_to_patents_l10p = {k: v for k, v in cid_to_patents.items() if len(v) <= 10}
