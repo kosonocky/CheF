@@ -153,6 +153,7 @@ def get_patent_info(patent_ids):
                 soup = BeautifulSoup(html_content, 'html.parser')
                 abstract = soup.find('div', class_='abstract')
                 description = soup.find('section', {'itemprop': 'description'})
+                title = soup.head.find('title')
 
                 if abstract is None:
                     abstract = "None"
@@ -164,8 +165,12 @@ def get_patent_info(patent_ids):
                 else:
                     description = fix_text(description.text)
 
+                if title is None:
+                    title = "None"
+                else:
+                    title = fix_text(title.text.split(' - ')[1])
                 
-                patent_info.update({patent_id: {"abstract": abstract, "description": description}})
+                patent_info.update({patent_id: {"abstract": abstract, "description": description, 'title': title}})
         except Exception as e:
             print(patent_id, e)
     return patent_info
@@ -264,9 +269,9 @@ def summarization_wrapper(patent_info, api_key, model = "gpt-3.5-turbo", system_
     summarizations = dict()
     for key, value in patent_info.items():
         if len(value["description"]) > desc_len:
-            user_prompt_complete = f"{user_prompt}\n\nAbstract:\n{value['abstract']}\n\nDescription:\n{value['description'][:desc_len]}"
+            user_prompt_complete = f"{user_prompt}\n\nTitle:\n{value['title']}\n\nAbstract:\n{value['abstract']}\n\nDescription:\n{value['description'][:desc_len]}"
         else:
-            user_prompt_complete = f"{user_prompt}\n\nAbstract:\n{value['abstract']}\n\nDescription:\n{value['description']}"
+            user_prompt_complete = f"{user_prompt}\n\nTitle:\n{value['title']}\n\nAbstract:\n{value['abstract']}\n\nDescription:\n{value['description']}"
 
         # # ensure less than 4k tokens. Most are ~1k
         # enc = tiktoken.get_encoding("cl100k_base")
@@ -324,19 +329,19 @@ def main():
     t_curr = time.time()
     output_dir = "../results/surechembl_smiles_canon_chiral_randomized_patents_l10p_summarizations"
     Path(output_dir).mkdir(parents=True, exist_ok=True)
-    head_n = 100
+    head_n = 200
     desc_len = 3500
     gpt_temperature = 0
     gpt_model = "gpt-3.5-turbo"
     api_key = "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"
     gpt_summ_system_prompt = "You are an organic chemist summarizing chemical patents"
     openai.api_key = api_key
-    gpt_summ_user_prompt = r"Return a short set of three 1-3 word descriptors that best describe the chemical or pharmacological function(s) of the molecule described by the given patent abstract and partial description (giving more weight to abstract). Be specific and concise, but not necessarily comprehensive (choose a small number of great descriptor). Follow the syntax '{descriptor_1} / {descriptor_2} / {etc}', writing 'NA' if nothing is provided. DO NOT BREAK THIS SYNTAX. The following is the patent:"
+    gpt_summ_user_prompt = r"Return a short set of three 1-3 word descriptors that best describe the chemical or pharmacological function(s) of the molecule described by the given patent title, abstract, and partial description (giving more weight to title & abstract). Be specific and concise, but not necessarily comprehensive (choose a small number of great descriptor). Follow the syntax '{descriptor_1} / {descriptor_2} / {etc}', writing 'NA' if nothing is provided. DO NOT BREAK THIS SYNTAX. The following is the patent:"
     df = pd.read_csv('../data/surechembl_smiles_canon_chiral_randomized_patents_l10p_noNA.csv', nrows=head_n)
     df["patent_ids"] = df["patent_ids"].map(literal_eval)
     print(f"Time to read in data: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds.")
 
-    # df = df.iloc[100:200]
+    df = df.iloc[100:200]
 
     n_cpus = 16
     print(f"INFO: Using {n_cpus} CPUs")
