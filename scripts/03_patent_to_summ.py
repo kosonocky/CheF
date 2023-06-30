@@ -101,8 +101,7 @@ def fix_text(text):
 
     pattern = re.compile(r'[a-zA-Z0-9\s\(\)\[\]{}\.,;\:\'\-\\\/\+\*\^=\?~`!@#$%&|<>\u0391-\u03C9]+')
     text = ' '.join(pattern.findall(text))
-    # text = re.sub(r"[\[\]\(\)\{\}\.,;:]+", "", text)
-    text = re.sub(r"(\s\w\s)+", " ", text)
+    text = re.sub(r"(\s\w\s\w\s)+", " ", text)
     text = text.replace('\n', ' ').replace('\t', ' ').replace('\r', ' ')
     text = ' '.join(text.split())
 
@@ -119,9 +118,6 @@ def fix_text(text):
     # remove patterns like ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) (alky)) ) ) ) ) ) ) ) ) ) ) )
     pattern = re.compile(r'(\)\s)+')
     text = pattern.sub(') ', text)
-
-    
-    # remove repeated characters separated by a space, following space char space char space ...
 
     return text
 
@@ -220,7 +216,7 @@ def chatgpt(api_key, model = "gpt-3.5-turbo", system_prompt = "", user_prompt = 
             return response["choices"][0]["message"]["content"]
         except Exception as e:
             tries += 1
-            time.sleep(5)
+            time.sleep(10)
             if tries > 10:
                 print(e)
                 print(user_prompt)
@@ -272,10 +268,10 @@ def summarization_wrapper(patent_info, api_key, model = "gpt-3.5-turbo", system_
         else:
             user_prompt_complete = f"{user_prompt}\n\nAbstract:\n{value['abstract']}\n\nDescription:\n{value['description']}"
 
-        # ensure less than 4k tokens. Most are ~1k
-        enc = tiktoken.get_encoding("cl100k_base")
-        tok = enc.encode(user_prompt_complete)
-        user_prompt_complete = enc.decode(tok[:4000])
+        # # ensure less than 4k tokens. Most are ~1k
+        # enc = tiktoken.get_encoding("cl100k_base")
+        # tok = enc.encode(user_prompt_complete)
+        # user_prompt_complete = enc.decode(tok[:4000])
         
         # print("*********")
         # print(key)
@@ -286,7 +282,7 @@ def summarization_wrapper(patent_info, api_key, model = "gpt-3.5-turbo", system_
                         model = model,
                         system_prompt = system_prompt,
                         user_prompt = user_prompt_complete,
-                        gpt_temperature = gpt_temperature)
+                        gpt_temperature = gpt_temperature,)
         # print(summ)
         # print("*********")
         if summ == "API REQUEST ERROR":
@@ -320,7 +316,7 @@ def summarizations_to_str(summarizations):
     # flatten list
     s_list = [item for sublist in s_list for item in sublist]
     # remove empty strings and 'NA', and "API REQUEST ERROR"
-    s_list = [s for s in s_list if s not in ['', 'NA', 'API REQUEST ERROR', " NA"]]
+    s_list = [s for s in s_list if s not in ['', 'NA', 'API REQUEST ERROR']]
     return str(set(s_list))
 
 
@@ -335,17 +331,14 @@ def main():
     api_key = "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"
     gpt_summ_system_prompt = "You are an organic chemist summarizing chemical patents"
     openai.api_key = api_key
-    # gpt_summ_user_prompt = r"Return a short set of three 1-3 word descriptors that best describe the chemical or pharmacological function(s) of the molecule described by the given patent abstract and partial description (giving more weight to abstract). Be specific and concise, but not necessarily comprehensive (choose a small number of great descriptor, avoiding common words). Follow the syntax '{descriptor_1} / {descriptor_2} / {etc}', writing 'NA' if nothing is provided. DO NOT BREAK THIS SYNTAX. The following is the patent:"
     gpt_summ_user_prompt = r"Return a short set of three 1-3 word descriptors that best describe the chemical or pharmacological function(s) of the molecule described by the given patent abstract and partial description (giving more weight to abstract). Be specific and concise, but not necessarily comprehensive (choose a small number of great descriptor). Follow the syntax '{descriptor_1} / {descriptor_2} / {etc}', writing 'NA' if nothing is provided. DO NOT BREAK THIS SYNTAX. The following is the patent:"
-
     df = pd.read_csv('../data/surechembl_smiles_canon_chiral_randomized_patents_l10p_noNA.csv', nrows=head_n)
     df["patent_ids"] = df["patent_ids"].map(literal_eval)
     print(f"Time to read in data: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds.")
 
-    # df = df.iloc[76:77]
-    # df = df.iloc[90:100]
+    # df = df.iloc[100:200]
 
-    n_cpus = 12
+    n_cpus = 16
     print(f"INFO: Using {n_cpus} CPUs")
     with mp.Pool(n_cpus) as p:
         patent_info = p.map(get_patent_info, df["patent_ids"].tolist())
