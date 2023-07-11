@@ -14,6 +14,7 @@ from unidecode import unidecode
 
 import openai
 import tiktoken
+import backoff 
 
 
 def google_patents_api_call(patent_id, _restarts = 0, _original_patent_id = ""):
@@ -175,6 +176,9 @@ def get_patent_info(patent_ids):
             print(patent_id, e)
     return patent_info
 
+@backoff.on_exception(backoff.expo, openai.error.RateLimitError)
+def completions_with_backoff(**kwargs):
+    return openai.ChatCompletion.create(**kwargs)
 
 def chatgpt(api_key, model = "gpt-3.5-turbo", system_prompt = "", user_prompt = "", gpt_temperature=0):
     """
@@ -203,31 +207,22 @@ def chatgpt(api_key, model = "gpt-3.5-turbo", system_prompt = "", user_prompt = 
         Generated text.
     """
     if (user_prompt == "") or (system_prompt == "") or (api_key == "") or (model == ""):
-        print("EXITING HERE")
+        print("MISSING PROMPT OR API KEY OR MODEL")
         return ""
-    api_success = False
-    tries = 0
-    while api_success == False:
-        try:
-            openai.api_key = api_key
-            response = openai.ChatCompletion.create(
-                model=model,
-                temperature = gpt_temperature,
-                messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ]
-                )
-            return response["choices"][0]["message"]["content"]
-        except Exception as e:
-            tries += 1
-            time.sleep(10)
-            if tries > 10:
-                print(e)
-                print(user_prompt)
-                return "API REQUEST ERROR"
-            else:
-                pass
+    try:
+        openai.api_key = api_key
+        response = completions_with_backoff(
+            model=model,
+            temperature = gpt_temperature,
+            messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ]
+            )
+        return response["choices"][0]["message"]["content"]
+    except Exception as e:
+        print(e)
+        return "API REQUEST ERROR"
 
 def summarization_wrapper(patent_info, api_key, model = "gpt-3.5-turbo", system_prompt = "", user_prompt = "", desc_len = 1000, gpt_temperature=0, gpt_max_patents_per_mol=10):       
     """
@@ -291,7 +286,7 @@ def summarization_wrapper(patent_info, api_key, model = "gpt-3.5-turbo", system_
         # print(summ)
         # print("*********")
         if summ == "API REQUEST ERROR":
-            print(f"API REQUEST ERROR FOR {key}. FAILED 10 TIMES.")
+            print(f"API REQUEST ERROR FOR {key}")
         summarizations.update({key: summ})
     return summarizations
 
@@ -329,19 +324,20 @@ def main():
     t_curr = time.time()
     output_dir = "../results/surechembl_smiles_canon_chiral_randomized_patents_l10p_summarizations"
     Path(output_dir).mkdir(parents=True, exist_ok=True)
-    head_n = 200
+    head_n = 100
     desc_len = 3500
     gpt_temperature = 0
     gpt_model = "gpt-3.5-turbo"
+    # gpt_model = "gpt-4"
     api_key = "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"
     gpt_summ_system_prompt = "You are an organic chemist summarizing chemical patents"
-    openai.api_key = api_key
     gpt_summ_user_prompt = r"Return a short set of three 1-3 word descriptors that best describe the chemical or pharmacological function(s) of the molecule described by the given patent title, abstract, and partial description (giving more weight to title & abstract). Be specific and concise, but not necessarily comprehensive (choose a small number of great descriptor). Follow the syntax '{descriptor_1} / {descriptor_2} / {etc}', writing 'NA' if nothing is provided. DO NOT BREAK THIS SYNTAX. The following is the patent:"
     df = pd.read_csv('../data/surechembl_smiles_canon_chiral_randomized_patents_l10p_noNA.csv', nrows=head_n)
     df["patent_ids"] = df["patent_ids"].map(literal_eval)
     print(f"Time to read in data: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds.")
 
-    df = df.iloc[100:200]
+    # df = df.iloc[0:100]
+    # df = df.iloc[100:200]
 
     n_cpus = 16
     print(f"INFO: Using {n_cpus} CPUs")
