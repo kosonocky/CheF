@@ -10,7 +10,7 @@ from pathlib import Path
 from itertools import repeat
 
 
-def load_data(input_:str, input_type:str = "csv", head_n:int = 0) -> pd.DataFrame:
+def load_data(input_:str, input_type:str = "csv", head_n:int = None) -> pd.DataFrame:
     """
     Loads data from a csv file or single SMILES string into a pandas dataframe.
 
@@ -31,10 +31,7 @@ def load_data(input_:str, input_type:str = "csv", head_n:int = 0) -> pd.DataFram
     """
 
     if input_type == "csv":
-        df = pd.read_csv(input_)
-        if head_n != 0: # option to select entire file
-            if head_n < len(df):
-                df = df[:head_n]
+        df = pd.read_csv(input_, nrows = head_n)
         df = df.rename(columns={"SMILES": "smiles"})
     else:
         df = pd.DataFrame({"smiles": [input_]})
