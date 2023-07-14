@@ -315,7 +315,7 @@ def summarizations_to_str(summarizations):
 def main():
     t_curr = time.time()
     print(f"INFO: Reading in top {(head_n:=100000)} molecules")
-    print(f"INFO: Using {(chunk_size:=1000)} molecules per chunk")
+    print(f"INFO: Using {(chunk_size:=100)} molecules per chunk")
     print(f"INFO: Using {(desc_len:=3500)} characters for description length")
     print(f"INFO: Using {(gpt_temperature:=0)} temperature for GPT")
     print(f"INFO: Using {(gpt_model:='gpt-3.5-turbo')} for model")
@@ -341,11 +341,11 @@ def main():
 
     # split df into chunks of 1k molecules
     for i in range(0, len(df), chunk_size):
-        if i+1000 > len(df):
+        if i+chunk_size > len(df):
             df_chunk = df.iloc[i:].reset_index(drop=True)
         else:
-            df_chunk = df.iloc[i:i+1000].reset_index(drop=True)
-        print(f"\nINFO: Processing chunk {i//1000 + 1} of {len(df)//1000 + 1}")
+            df_chunk = df.iloc[i:i+chunk_size].reset_index(drop=True)
+        print(f"\nINFO: Processing chunk {i//chunk_size + 1} of {len(df)//chunk_size}")
 
         with mp.Pool(n_cpus) as p:
             patent_info = p.map(get_patent_info, df_chunk["patent_ids"].tolist())
