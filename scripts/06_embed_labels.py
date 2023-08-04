@@ -4,8 +4,13 @@ import openai
 import time
 import multiprocessing as mp
 from itertools import repeat
+import backoff
 
 
+
+@backoff.on_exception(backoff.expo, openai.error.RateLimitError)
+def completions_with_backoff(**kwargs):
+    return openai.Embedding.create(**kwargs)
 
 def openai_embed_text(text, api_key, model = "text-embedding-ada-002"):
     """
@@ -16,27 +21,21 @@ def openai_embed_text(text, api_key, model = "text-embedding-ada-002"):
     Returns:
     --------
     """
-    api_success = False
-    tries = 0
-    while api_success == False:
-        try:
-            openai.api_key = api_key
-            response = openai.Embedding.create(
+    try:
+        openai.api_key = api_key
+        response = completions_with_backoff(
             input=text,
             model="text-embedding-ada-002"
-            )
-            return response['data'][0]['embedding']
-        except Exception as e:
-            tries += 1
-            time.sleep(5)
-            if tries > 10:
-                print(e)
-                return None
+        )
+        return response['data'][0]['embedding']
+    except Exception as e:
+        print(e)
+        return None
 
 
 def main():
     api_key = "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"
-    with open("../results/schembl_summarizations_vocab_v3_alg_cleaned.txt") as f:
+    with open("../results/schembl_summs_v3_alg_cleaned_vocab.txt") as f:
         labels = f.read().splitlines()
 
     df = pd.DataFrame(labels, columns = ["labels"])
@@ -47,8 +46,8 @@ def main():
 
     df['embeddings'] = embeddings
 
-    df.to_pickle("../results/schembl_summarizations_vocab_v4_embeddings.pkl")
-    df.to_csv("../results/schembl_summarizations_vocab_v4_embeddings.csv")
+    df.to_pickle("../results/schembl_summs_v3_vocab_embeddings.pkl")
+    df.to_csv("../results/schembl_summs_v3_vocab_embeddings.csv")
 
 if __name__ == "__main__":
     main()
