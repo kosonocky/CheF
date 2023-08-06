@@ -1,3 +1,5 @@
+# NOTE The largest cluster is (likely always) a structural term cluster. This one results in API REQUEST ERROR, and will be manually fixed to 'structural' in the final results, which will be removed from the final results.
+
 import re
 import sys
 import time
