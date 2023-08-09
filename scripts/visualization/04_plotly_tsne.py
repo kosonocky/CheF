@@ -167,8 +167,9 @@ def display_hover(hoverData):
         html.Div([
             html.Img(src=img_src, style={"width": "100%"}),
             html.H2(f"{cid}", style={"color": "darkblue", "overflow-wrap": "break-word"}),
-            html.P(f"{smi}"),
-            html.P(f"{summ}"),
+            # wrap smi so it stays within box. It is one long string that won't normally wrap
+            html.P(f"{smi}", style={'width': '200px', 'overflow-wrap':'break-word'}),
+            html.P(f"{summ}", style={'width': '200px', 'overflow-wrap':'break-word'}),
         ], style={'width': '200px', 'white-space': 'normal'})
     ]
 
