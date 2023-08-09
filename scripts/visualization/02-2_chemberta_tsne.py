@@ -9,6 +9,7 @@ from ast import literal_eval
 def main():
 
     df = pd.read_pickle("schembl_summs_v4_final_with_chemberta.pkl")
+    df = df.dropna(subset=["features"])
     print("Dataframe loaded")
 
     # create tsne of fingerprint data
