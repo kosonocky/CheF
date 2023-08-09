@@ -30,26 +30,61 @@ with open("sorted_terms.pkl", "rb") as f:
 
 
 
-# plot
-df["color"] = df["summarizations"].apply(lambda x: "#FF6692" if "antiviral" in x else "black")
-df["opacity"] = df["summarizations"].apply(lambda x: 1 if "antiviral" in x else 0.3)
-df["size"] = df["summarizations"].apply(lambda x: 5 if "antiviral" in x else 1.5)
+# # # plot
+# df["color"] = df["summarizations"].map(lambda x: "#FF6692" if "antiviral" in x else "black")
+# df["opacity"] = df["summarizations"].map(lambda x: 1 if "antiviral" in x else 0.3)
+# df["size"] = df["summarizations"].map(lambda x: 5 if "antiviral" in x else 1.5)
+# fig = go.Figure(data=[
+#     go.Scattergl(
+#         # x=df["chemberta_tsne_x"],
+#         # y=df["chemberta_tsne_y"],
+        
+#         x=df["fp_tsne_x"],
+#         y=df["fp_tsne_y"],
+#         mode="markers",
+#         marker=dict(
+#             opacity=df["opacity"],
+#             color=df["color"],
+#             size=df["size"],
+#             line={"color": "#000000"}, # black
+
+
+#         ),
+#         hoverinfo="skip",
+#     )
+# ])
+
+df_term_true = df[df["summarizations"].map(lambda x: True if "antiviral" in x else False)]
+df_term_false = df[df["summarizations"].map(lambda x: False if "antiviral" in x else True)]
+
 fig = go.Figure(data=[
     go.Scattergl(
-        # x=df["chemberta_tsne_x"],
-        # y=df["chemberta_tsne_y"],
-        x=df["fp_tsne_x"],
-        y=df["fp_tsne_y"],
+        x=df[df["summarizations"].map(lambda x: False if "antiviral" in x else True)]["fp_tsne_x"],
+        y=df[df["summarizations"].map(lambda x: False if "antiviral" in x else True)]["fp_tsne_y"],
         mode="markers",
         marker=dict(
-            opacity=df["opacity"],
-            color=df["color"],
-            size=df["size"],
+            opacity=0.3,
+            color="#000000",
+            size=2,
             line={"color": "#000000"}, # black
         ),
         hoverinfo="skip",
-    )
+    ),
+    go.Scattergl(
+        # check if "antiviral" is in the df['summarizations'] list
+        x=df[df["summarizations"].map(lambda x: True if "antiviral" in x else False)]["fp_tsne_x"],
+        y=df[df["summarizations"].map(lambda x: True if "antiviral" in x else False)]["fp_tsne_y"],
+        mode="markers",
+        marker=dict(
+            opacity=1,
+            color="#FF6692",
+            size=5,
+            line=dict(width=0.7, color='DarkSlateGrey'),
+        ),
+        hoverinfo="skip",
+    ),
 ])
+
 # turn off native plotly.js hover effects - make sure to use
 # hoverinfo="none" rather than "skip" which also halts events.
 fig.update_traces(hoverinfo="none", hovertemplate=None)
@@ -60,10 +95,10 @@ fig.update_layout(
 
 # make plot large square
 fig.update_layout(
-    # width=1600,
-    height=800,
+    width=850,
+    height=850,
     # autosize=False,
-    # margin=dict(l=0, r=0, b=0, t=0, pad=0),
+    margin=dict(l=0, r=0, b=0, t=0, pad=0),
     # dark theme
     template="ggplot2",
 
@@ -88,12 +123,14 @@ app.layout = html.Div([
     html.Div([
         dcc.Graph(id="graph-basic-2", figure=fig, clear_on_unhover=True),
         dcc.Tooltip(id="graph-tooltip"),
-    ], style={'width': '85%', 'display': 'inline-block', 'text-align': 'center', 'vertical-align': 'middle', 'height': '100%'}),
+    ], style={'width': '60%', 'display': 'inline-block', 'text-align': 'center', 'vertical-align': 'middle', 'height': '100%', 'padding-left':'10%'}),
     # make smaller and on right side of plot. Near top 10% of page. Pad on right side
     html.Div([
+        # header
+        html.H1("ChAPL-100k Interactive t-SNE"),
         dcc.Dropdown(sorted_terms, 'antiviral', id='term-dropdown',),
         html.Div(id='dd-output-container'),
-    ], style={'width': '15%', 'display': 'inline-block', 'text-align': 'center', 'vertical-align': 'top', 'margin-top': '10%', 'padding-right': '3%'}),
+    ], style={'width': '40%', 'display': 'inline-block', 'text-align': 'center', 'vertical-align': 'top', 'margin-top': '10%', 'padding-left':'5%', 'padding-right': '15%'}),
 ])
 
 
@@ -113,7 +150,13 @@ def display_hover(hoverData):
     bbox = pt["bbox"]
     num = pt["pointNumber"]
 
-    df_row = df.iloc[num]
+    # make sure to select from correct data, as there are two overlayed plots
+    # This doesn't work with my subsetting of the dataframe during subgraph plotting
+    # df_row = df.iloc[num]
+
+    # get df row with same xy coordinates as hoverData. Kind of a cheat but it works!!!
+    df_row = df[(df["fp_tsne_x"] == pt["x"]) & (df["fp_tsne_y"] == pt["y"])].iloc[0]
+
     img_src = df_row['im_url']
     cid = df_row['cid']
     smi = df_row['smiles']
@@ -140,25 +183,56 @@ def display_hover(hoverData):
     Input('term-dropdown', 'value')
 )
 def update_output(value):
-    # replot with new value
-    df["color"] = df["summarizations"].apply(lambda x: "#FF6692" if value in x else "black")
-    df["opacity"] = df["summarizations"].apply(lambda x: 1 if value in x else 0.3)
-    df["size"] = df["summarizations"].apply(lambda x: 5 if value in x else 1.5)
+    # # # replot with new value
+    # df["color"] = df["summarizations"].map(lambda x: "#FF6692" if value in x else "black")
+    # df["opacity"] = df["summarizations"].map(lambda x: 1 if value in x else 0.3)
+    # df["size"] = df["summarizations"].map(lambda x: 5 if value in x else 1.5)
+    # fig = go.Figure(data=[
+    #     go.Scattergl(
+    #         # x=df["chemberta_tsne_x"],
+    #         # y=df["chemberta_tsne_y"],
+    #         x=df["fp_tsne_x"],
+    #         y=df["fp_tsne_y"],
+    #         mode="markers",
+    #         marker=dict(
+    #             opacity=df["opacity"],
+    #             color=df["color"],
+    #             size=df["size"],
+    #             line={"color": "#000000"}, # black
+    #         ),
+    #         hoverinfo="skip",
+    #     )
+    # ])
+
+    df_tmp = df[df["summarizations"].map(lambda x: True if value in x else False)]
+
     fig = go.Figure(data=[
         go.Scattergl(
-            # x=df["chemberta_tsne_x"],
-            # y=df["chemberta_tsne_y"],
-            x=df["fp_tsne_x"],
-            y=df["fp_tsne_y"],
+            x=df[df["summarizations"].map(lambda x: False if value in x else True)]["fp_tsne_x"],
+            y=df[df["summarizations"].map(lambda x: False if value in x else True)]["fp_tsne_y"],
             mode="markers",
             marker=dict(
-                opacity=df["opacity"],
-                color=df["color"],
-                size=df["size"],
+                opacity=0.3,
+                color="#000000",
+                size=2,
                 line={"color": "#000000"}, # black
             ),
             hoverinfo="skip",
-        )
+        ),
+        go.Scattergl(
+            x=df[df["summarizations"].map(lambda x: True if value in x else False)]["fp_tsne_x"],
+            y=df[df["summarizations"].map(lambda x: True if value in x else False)]["fp_tsne_y"],
+            mode="markers",
+            marker=dict(
+                opacity=1,
+                color="#FF6692",
+                size=5,
+                # line={"color": "#000000"}, # black
+                # show borders
+                line=dict(width=0.7, color='DarkSlateGrey'),
+            ),
+            hoverinfo="skip",
+        ),
     ])
     # turn off native plotly.js hover effects - make sure to use
     # hoverinfo="none" rather than "skip" which also halts events.
@@ -170,10 +244,10 @@ def update_output(value):
 
     # make plot large square
     fig.update_layout(
-        # width=1600,
-        height=800,
+        width=850,
+        height=850,
         # autosize=False,
-        # margin=dict(l=0, r=0, b=0, t=0, pad=0),
+        margin=dict(l=0, r=0, b=0, t=0, pad=0),
         template="ggplot2",
     )
 
