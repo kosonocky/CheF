@@ -5,14 +5,12 @@ import argparse
 import numpy as np
 import pandas as pd
 pd.options.mode.chained_assignment = None  # default='warn'
-from sklearn.model_selection import train_test_split, cross_validate, StratifiedKFold
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.svm import SVC
-from sklearn.neural_network import MLPClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, roc_curve
+from sklearn.model_selection import StratifiedKFold
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix
 from sklearn.metrics import RocCurveDisplay, ConfusionMatrixDisplay, auc
-# from xgboost import XGBClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -21,44 +19,32 @@ def main(args):
     label = args.label
     print(f"Training RFC for {label}\n")
 
-    df = pd.read_pickle("schembl_summs_v4_final_with_fingerprint_and_chemberta.pkl")
-    # fp_df = pd.read_pickle("../../results/schembl_summs_v4_final_with_fingerprint_arr.pkl")
-    # cb_df = pd.read_pickle("../../results/schembl_summs_v4_final_with_chemberta.pkl")
-
-    # # drop cids from fb that are not in cb and vice versa
-    # fp_df = fp_df[fp_df['cid'].isin(cb_df['cid'])]
-    # cb_df = cb_df[cb_df['cid'].isin(fp_df['cid'])]
-
-    # # merge feature vectors to own column in fb_df called "features"
-    # fp_df = fp_df.merge(cb_df[["cid", "features"]], on="cid", how="left")
-    
-    # # drop na rows
-    # fp_df = fp_df.dropna(subset=["features"])
-
-    # # save as pkl file
-    # fp_df.to_pickle("schembl_summs_v4_final_with_fingerprint_and_chemberta.pkl")
-    # raise
-
+    df = pd.read_pickle("schembl_summs_v4_final_with_fingerprint_and_chemberta.pkl").reset_index(drop=True)
+    print("df len", len(df))
     # create column label if label is in "summarizations" column
-    fp_df[label] = fp_df['summarizations'].apply(lambda x: 1 if label in x else 0)
-    cb_df[label] = cb_df['summarizations'].apply(lambda x: 1 if label in x else 0)
+    df[label] = df['summarizations'].apply(lambda x: 1 if label in x else 0)
+    # print number of labels
+    print("labels", df[label].value_counts())
 
-    fp_x = np.array(fp_df["fingerprint"].tolist())
-    fp_y = np.array(fp_df[label].tolist())
-    cb_x = np.array(cb_df["features"].tolist())
-    cb_y = np.array(cb_df[label].tolist())
+    fp_x = np.array(df["fingerprint"].tolist())
+    fp_y = np.array(df[label].tolist())
+    cb_x = np.array(df["features"].tolist())
+    cb_y = np.array(df[label].tolist())
     
+
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-
-
-    for df, x, y, name in zip([fp_df, cb_df], [fp_x, cb_x], [fp_y, cb_y], ["fp", "cb"]):
-    # for df, x, y, name in zip([cb_df, fp_df], [cb_x, fp_x], [cb_y, fp_y], ["cb", "fp"]):
-        rfc = RandomForestClassifier(random_state=42, n_jobs=40)
+    for x, y, name in zip([fp_x, cb_x], [fp_y, cb_y], ["fp", "cb"]):
+        # make standard scaler rfc pipeline
+        rfc = Pipeline([
+            ('scaler', StandardScaler()),
+            ('rfc', RandomForestClassifier(random_state=42, n_jobs=40))
+        ])
+        
 
         print('\nModel: ', rfc)
         print('Data: ', name)
         # create save dir
-        save_path = Path(label, name, rfc.__class__.__name__)
+        save_path = Path(label, name, "rfc")
         save_path.mkdir(parents=True, exist_ok=True)
 
         fig, ax = plt.subplots(figsize=(5, 5))
