@@ -19,12 +19,25 @@ import seaborn as sns
 
 def main(args):
     label = args.label
+    print(f"Training RFC for {label}\n")
 
-    fp_df = pd.read_pickle("../../results/schembl_summs_v4_final_with_fingerprint_arr.pkl")
-    cb_df = pd.read_pickle("../../results/schembl_summs_v4_final_with_chemberta.pkl")
-    # drop na values\
-    fp_df = fp_df.dropna(subset=['fingerprint'])
-    cb_df = cb_df.dropna(subset=['features'])
+    df = pd.read_pickle("schembl_summs_v4_final_with_fingerprint_and_chemberta.pkl")
+    # fp_df = pd.read_pickle("../../results/schembl_summs_v4_final_with_fingerprint_arr.pkl")
+    # cb_df = pd.read_pickle("../../results/schembl_summs_v4_final_with_chemberta.pkl")
+
+    # # drop cids from fb that are not in cb and vice versa
+    # fp_df = fp_df[fp_df['cid'].isin(cb_df['cid'])]
+    # cb_df = cb_df[cb_df['cid'].isin(fp_df['cid'])]
+
+    # # merge feature vectors to own column in fb_df called "features"
+    # fp_df = fp_df.merge(cb_df[["cid", "features"]], on="cid", how="left")
+    
+    # # drop na rows
+    # fp_df = fp_df.dropna(subset=["features"])
+
+    # # save as pkl file
+    # fp_df.to_pickle("schembl_summs_v4_final_with_fingerprint_and_chemberta.pkl")
+    # raise
 
     # create column label if label is in "summarizations" column
     fp_df[label] = fp_df['summarizations'].apply(lambda x: 1 if label in x else 0)
@@ -38,8 +51,8 @@ def main(args):
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
 
-
     for df, x, y, name in zip([fp_df, cb_df], [fp_x, cb_x], [fp_y, cb_y], ["fp", "cb"]):
+    # for df, x, y, name in zip([cb_df, fp_df], [cb_x, fp_x], [cb_y, fp_y], ["cb", "fp"]):
         rfc = RandomForestClassifier(random_state=42, n_jobs=40)
 
         print('\nModel: ', rfc)
@@ -48,7 +61,7 @@ def main(args):
         save_path = Path(label, name, rfc.__class__.__name__)
         save_path.mkdir(parents=True, exist_ok=True)
 
-        roc_fig, roc_ax = plt.subplots(figsize=(5, 5))
+        fig, ax = plt.subplots(figsize=(5, 5))
         tprs = []
         aucs = []
         mean_fpr = np.linspace(0, 1, 100) # mean_fpr
@@ -83,7 +96,7 @@ def main(args):
                 name=f'ROC fold {fold}',
                 alpha=0.3,
                 lw=1,
-                ax=roc_ax,
+                ax=ax,
                 plot_chance_level=(fold == 4),
             )
             interp_tpr = np.interp(mean_fpr, viz.fpr, viz.tpr)
@@ -91,13 +104,37 @@ def main(args):
             tprs.append(interp_tpr)
             aucs.append(viz.roc_auc)
 
+            # write file with TP, TN, FP, FN
+            tn, fp, fn, tp = confusion_matrix(y[test], test_pred).ravel()
+            with open(save_path / f"confusion_matrix_fold_{fold}.txt", "w") as f:
+                f.write(f"TP: {tp}\n")
+                f.write(f"TN: {tn}\n")
+                f.write(f"FP: {fp}\n")
+                f.write(f"FN: {fn}\n")
+                # plot precision, recall acc, f
+                f.write(f"Precision: {precision_score(y[test], test_pred)}\n")
+                f.write(f"Recall: {recall_score(y[test], test_pred)}\n")
+                f.write(f"Accuracy: {accuracy_score(y[test], test_pred)}\n")
+                f.write(f"F1: {f1_score(y[test], test_pred)}\n")
+                f.write(f"AUC: {roc_auc_score(y[test], test_pred)}\n")
+                
+            # plot confusion matrix
+            plt_cm, ax_cm = plt.subplots(figsize=(5, 5))
+            disp = ConfusionMatrixDisplay.from_predictions(
+                y[test],
+                test_pred,
+                ax=ax_cm,
+            )
+            disp.ax_.set_title(f"Confusion matrix fold {fold}")
+            disp.figure_.savefig(save_path / f"confusion_matrix_fold_{fold}.png")
+
 
         # plot mean roc curve
         mean_tpr = np.mean(tprs, axis=0)
         mean_tpr[-1] = 1.0
         mean_auc = auc(mean_fpr, mean_tpr)
         std_auc = np.std(aucs)
-        roc_ax.plot(
+        ax.plot(
             mean_fpr, 
             mean_tpr, 
             color='b',
@@ -106,11 +143,20 @@ def main(args):
             alpha=.8
         )
         
+        # plot chance line
+        ax.set(
+            xlim=[-0.05, 1.05],
+            ylim=[-0.05, 1.05],
+            xlabel='False Positive Rate',
+            ylabel='True Positive Rate',
+            # title=f"Mean ROC curve with variability\n(Positive label '{label}')"
+        )
+
         # plot variability
         std_tpr = np.std(tprs, axis=0)
         tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
         tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
-        roc_ax.fill_between(
+        ax.fill_between(
             mean_fpr,
             tprs_lower,
             tprs_upper,
@@ -119,17 +165,29 @@ def main(args):
             label=r'$\pm$ 1 std. dev.'
         )
 
-        # plot chance line
-        roc_ax.set(
-            xlim=[-0.05, 1.05],
-            ylim=[-0.05, 1.05],
-            xlabel='False Positive Rate',
-            ylabel='True Positive Rate',
-            # title=f"Mean ROC curve with variability\n(Positive label '{label}')"
+        # show legend in order of folds, then mean, then chance
+        handles, labels = ax.get_legend_handles_labels()
+
+        # handles = handles[:-1]
+        # labels = labels[:-1]
+
+        handles = handles[:-3] + handles[-2:-1] + handles[-3:-2]
+        labels = labels[:-3] + labels[-2:-1] + labels[-3:-2]
+        # make legend outside plot to right. Make sure text isn't cropped
+        ax.legend(
+            handles,
+            labels,
+            loc='center left',
+            bbox_to_anchor=(1, 0.5),
         )
 
-        # save figs
-        roc_fig.savefig(save_path / 'roc.png', dpi=300)
+        # add title with number of true positives and negatives
+        # ax.set_title(f"Mean ROC curve with variability\n(Positive label '{label}')")
+        ax.set_title(f"Mean ROC curve with variability\n(Positive label '{label}')\nTP: {sum(y)} TN: {len(y) - sum(y)}\n")
+    
+
+        # save figs. Make sure not to crop legend text on right
+        fig.savefig(save_path / 'roc.png', dpi=300, bbox_inches='tight')
 
         # save metrics
         with open(save_path / 'metrics.txt', 'w') as f:
