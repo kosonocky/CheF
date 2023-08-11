@@ -17,14 +17,14 @@ import seaborn as sns
 
 
 def main(args):
-    labels_ = ["antibacterial", "antibiotic", "bactericide",]
-    label = "antibacterial_all"
-    # labels = ["antiviral", "viral", "anti-viral",]
+    # labels_ = ["antibacterial", "antibiotic", "bactericide",]
+    # label = "antibacterial_all"
+    # labels_ = ["antiviral", "viral", "anti-viral",]
     # label = "antiviral_all"
-    # labels = ["electroluminescent", "light-emitting", "emitting"]
+    # labels_ = ["electroluminescent", "light-emitting", "emitting"]
     # label = "electroluminescent_all"
-    # labels = ["hepatitis", "hcv", "hbv"]
-    # label = "hepatitis_all"
+    labels_ = ["hepatitis", "hcv", "hbv"]
+    label = "hepatitis_all"
     
 
 
