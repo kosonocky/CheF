@@ -20,11 +20,7 @@ def main(args):
     print(f"\nTraining RFC for {label}\n")
 
     df = pd.read_pickle("schembl_summs_v4_final_with_fingerprint_and_chemberta.pkl").reset_index(drop=True)
-    # print("df len", len(df))
-    # create column label if label is in "summarizations" column
     df[label] = df['summarizations'].apply(lambda x: 1 if label in x else 0)
-    # print number of labels
-    # print("labels", df[label].value_counts())
 
     fp_x = np.array(df["fingerprint"].tolist())
     fp_y = np.array(df[label].tolist())
@@ -34,12 +30,10 @@ def main(args):
 
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     for x, y, name in zip([fp_x, cb_x], [fp_y, cb_y], ["fp", "cb"]):
-        # make standard scaler rfc pipeline
-        # rfc = Pipeline([
-            # ('scaler', StandardScaler()),
-            # ('rfc', RandomForestClassifier(random_state=42, n_jobs=40))
-        # ])
-        rfc = RandomForestClassifier(random_state=42, n_jobs=40)
+        rfc = Pipeline([
+            ('scaler', StandardScaler()),
+            ('rfc', RandomForestClassifier(random_state=42, n_jobs=40, n_estimators=50))
+        ])
 
         print('Model: ', rfc)
         print('Data: ', name)
@@ -52,10 +46,8 @@ def main(args):
         tprs = []
         aucs = []
         precisions = []
-        recalls = []
         aps = []
         mean_fpr = np.linspace(0, 1, 100) # mean_fpr
-        mean_fpr_reverse = np.linspace(1, 0, 100) # mean_fpr
         
         for fold, (train, test) in enumerate(cv.split(x, y)):
             print(f"Fold {fold}")
@@ -152,10 +144,6 @@ def main(args):
 
         # show legend in order of folds, then mean, then chance
         handles, labels = ax.get_legend_handles_labels()
-
-        # handles = handles[:-1]
-        # labels = labels[:-1]
-
         handles = handles[:-3] + handles[-2:-1] + handles[-3:-2]
         labels = labels[:-3] + labels[-2:-1] + labels[-3:-2]
         # make legend outside plot to right. Make sure text isn't cropped
@@ -167,7 +155,6 @@ def main(args):
         )
 
         # add title with number of true positives and negatives
-        # ax.set_title(f"Mean ROC curve with variability\n(Positive label '{label}')")
         ax.set_title(f"ROC Curves {name}+RFC\n(Positive label = '{label}')\nGround Truth P: {sum(y)} N: {len(y) - sum(y)}\n")
     
 
@@ -215,6 +202,7 @@ def main(args):
         # Remove variability from legend
         handles, labels = ax_prc.get_legend_handles_labels()
         handles = handles[:-3] + handles[-2:-1] + handles[-3:-2]
+        labels = labels[:-3] + labels[-2:-1] + labels[-3:-2]
         
 
         # make legend outside plot to right. Make sure text isn't cropped
@@ -226,14 +214,10 @@ def main(args):
         )
 
         # add title with number of true positives and negatives
-        # ax.set_title(f"Mean ROC curve with variability\n(Positive label '{label}')")
         ax_prc.set_title(f"PR Curves {name}+RFC\n(Positive label = '{label}')\nGround Truth P: {sum(y)} N: {len(y) - sum(y)}\n")
 
         # save figs. Make sure not to crop legend text on right
         fig_prc.savefig(save_path / 'pr.png', dpi=300, bbox_inches='tight')
-
-
-
 
         # save metrics
         with open(save_path / 'metrics.txt', 'w') as f:
