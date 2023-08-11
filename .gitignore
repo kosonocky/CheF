@@ -1,5 +1,8 @@
 *.DS_Store
 *.pkl
+*.html
+*.csv
+*.png
 _archive
 
 scripts/surechembl_summarizations/*.csv
