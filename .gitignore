@@ -3,7 +3,11 @@
 *.html
 *.csv
 *.png
+*.tar.gz
 _archive
+
+
+scripts/models/model_results
 
 scripts/surechembl_summarizations/*.csv
 data/*.csv

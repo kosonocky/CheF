@@ -224,8 +224,12 @@ def main(args):
 
         # save metrics
         with open(save_path / 'metrics.txt', 'w') as f:
+            f.write(f"Ground Truth P: {sum(y)}\n")
+            f.write(f"Ground Truth N: {len(y) - sum(y)}\n")
             f.write(f"Mean ROC AUC: {mean_auc}\n")
             f.write(f"Std ROC AUC: {std_auc}\n")
+            f.write(f"Mean PR AUC: {mean_prc_auc}\n")
+            f.write(f"Std PR AUC: {std_prc_auc}\n")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

@@ -8,21 +8,7 @@ from collections import Counter
 import pickle as pkl
 
 # NOTE used to create pkl files. Using pkl for faster loading
-# df = pd.read_csv("tsne_fingerprint_plotly.csv")
-# df = pd.read_csv("tsne_chemberta_plotly.csv")
-# df["summarizations"] = df["summarizations"].apply(literal_eval)
-# df.to_pickle("tsne_chemberta_plotly.pkl")
-# # get terms in sorted order
-# all_terms = Counter()
-# for i in df["summarizations"]:
-#     all_terms.update(i)
-# # get just keys of sorted terms
-# sorted_terms = [i[0] for i in all_terms.most_common()]
-# with open("sorted_terms.pkl", "wb") as f:
-#     # pickle
-#     pkl.dump(sorted_terms, f)
-# df = pd.read_pickle("tsne_fingerprint_plotly.pkl")
-df = pd.read_pickle("plotly_all.pkl")
+df = pd.read_pickle("schembl_summs_v4_final_cb_fp_tsne_umap.pkl")
 with open("sorted_terms.pkl", "rb") as f:
     # pickle
     sorted_terms = pkl.load(f)

@@ -32,7 +32,7 @@ def main(args):
     for x, y, name in zip([fp_x, cb_x], [fp_y, cb_y], ["fp", "cb"]):
         rfc = Pipeline([
             ('scaler', StandardScaler()),
-            ('rfc', RandomForestClassifier(random_state=42, n_jobs=40, n_estimators=50))
+            ('rfc', RandomForestClassifier(random_state=42, n_jobs=40, n_estimators=150))
         ])
 
         print('Model: ', rfc)
@@ -221,8 +221,13 @@ def main(args):
 
         # save metrics
         with open(save_path / 'metrics.txt', 'w') as f:
+            f.write(f"Ground Truth P: {sum(y)}\n")
+            f.write(f"Ground Truth N: {len(y) - sum(y)}\n")
             f.write(f"Mean ROC AUC: {mean_auc}\n")
             f.write(f"Std ROC AUC: {std_auc}\n")
+            f.write(f"Mean PR AUC: {mean_prc_auc}\n")
+            f.write(f"Std PR AUC: {std_prc_auc}\n")
+            
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
