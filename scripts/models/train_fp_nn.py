@@ -156,7 +156,10 @@ def train_model(model, X, y, train, valid, fold, results_df, lr_rate=0.001, epoc
         # save model each epoch
         torch.save(model.state_dict(), f"{save_path}/fold_{fold}_epoch_{epoch+1}.pth")
 
-    return losses, results_df
+        # save losses
+        np.save(f"{save_path}/fold_{fold}_epoch_{epoch+1}_train_losses.npy", losses)
+
+    return results_df
 
 
 
@@ -204,8 +207,6 @@ def test_model(model, X, y, cid, mlb, epoch, kfold, batch_size=32, device="cpu",
     results.to_csv(save_path / "test_results.csv", index=False)
 
     
-    
-
 
 def main():
 
@@ -224,11 +225,11 @@ def main():
     X_train, X_test, y_train, y_test, cid_train, cid_test = train_test_split(X, y, cid, test_size=0.1, random_state=42)
     
     # train model
-    model, device = load_model_device()
     results_df = pd.DataFrame(columns=["fold", "epoch", "train_loss", "valid_loss"])
     kf = KFold(n_splits=kfolds, shuffle=True, random_state=42)
     for fold, (train, valid) in enumerate(kf.split(X, y)):
-        losses, results_df = train_model(model = model,
+        model, device = load_model_device()
+        results_df = train_model(model = model,
                                    X = X,
                                    y = y,
                                    train = train,
@@ -240,8 +241,6 @@ def main():
                                    epochs=10, 
                                    batch_size=32)
 
-    # save losses
-    np.save(save_path / "losses.npy", losses)
     results_df.to_csv(save_path / "results.csv", index=False)
 
     # find the epoch and fold with the lowest validation loss
