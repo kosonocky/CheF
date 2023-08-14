@@ -238,7 +238,7 @@ def main():
     # train model
     results_df = pd.DataFrame(columns=["fold", "epoch", "train_loss", "valid_loss"])
     kf = KFold(n_splits=kfolds, shuffle=True, random_state=42)
-    for fold, (train, valid) in enumerate(kf.split(X, y)):
+    for fold, (train, valid) in enumerate(kf.split(X_train, y_train)):
         model, device = load_model_device()
         results_df = train_model(model = model,
                                    X = X_train,
