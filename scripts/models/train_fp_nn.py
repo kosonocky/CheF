@@ -1,3 +1,4 @@
+import time
 import pickle as pkl
 import pandas as pd
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -198,18 +199,28 @@ def test_model(model, X, y, cid, mlb, epoch, kfold, batch_size=32, device="cpu",
     targets = np.vstack(targets)
     cids = np.hstack(cids)
 
-    # convert preds and targets to labels
-    preds_labels = mlb.inverse_transform(preds)
-    targets_labels = mlb.inverse_transform(targets)
+    # sigmoid activate preds
+    preds = 1 / (1 + np.exp(-preds))
 
-    # save results to csv
-    results = pd.DataFrame({"cid": cids, "preds": preds, "targets": targets, "preds_labels": preds_labels, "targets_labels": targets_labels})
-    results.to_csv(save_path / "test_results.csv", index=False)
+    # create df with cid, pred or target in rows
+    # and in each column, the label is a column with the value being the probability
+    results = pd.DataFrame(preds, index=cids, columns=mlb.classes_)
+    results.index.name = "cid"
+    results.reset_index(inplace=True)
 
+    # add in targets as rows, with probabilities in each column
+    targets_df = pd.DataFrame(targets, index=cids, columns=mlb.classes_)
+    targets_df.index.name = "cid"
+    targets_df.reset_index(inplace=True)
     
+    # save results to csv
+    results.to_csv(save_path / "test_results.csv", index=False)
+    targets_df.to_csv(save_path / "test_targets.csv", index=False)
+
+
 
 def main():
-
+    t0 = time.time()
     kfolds=10
     df_path = '../../results/schembl_summs_v5_final_fp.pkl'
     save_path = Path("models/fp_nn")
@@ -230,8 +241,8 @@ def main():
     for fold, (train, valid) in enumerate(kf.split(X, y)):
         model, device = load_model_device()
         results_df = train_model(model = model,
-                                   X = X,
-                                   y = y,
+                                   X = X_train,
+                                   y = y_train,
                                    train = train,
                                    valid = valid,
                                    fold = fold, 
@@ -241,17 +252,27 @@ def main():
                                    epochs=10, 
                                    batch_size=32)
 
-    results_df.to_csv(save_path / "results.csv", index=False)
+    results_df.to_csv(save_path / "train_results.csv", index=False)
+
 
     # find the epoch and fold with the lowest validation loss
-    best_epoch = results_df.groupby("fold")["valid_loss"].idxmin().values[0]
-    best_fold = results_df.iloc[best_epoch]["fold"]
+    min_loss = results_df['valid_loss'].min()
+    best_idx = int(results_df['valid_loss'].idxmin())
+    best_epoch = int(results_df.iloc[best_idx]["epoch"])
+    best_fold = int(results_df.iloc[best_idx]["fold"])
+
+    print(f"Best epoch: {best_epoch}", f"Best fold: {best_fold}", f"Best loss: {min_loss}", sep="\n")
 
     # load best model
+    model, device = load_model_device()
     model.load_state_dict(torch.load(f"{save_path}/fold_{best_fold}_epoch_{best_epoch+1}.pth"))
-    test_model(model, X_test, y_test, cid_test, mlb, epoch=best_epoch, kfold=best_fold, save_path=save_path)
+
+    # test model
+    test_model(model, X_test, y_test, cid_test, mlb, epoch=best_epoch, kfold=best_fold, save_path=save_path, device=device)
+
 
     print("Done! Thank you for your patience.")
+    print(f"Total time: {time.time()-t0:.2f} seconds")
 
 
 if __name__ == '__main__':
