@@ -249,7 +249,7 @@ def main():
                                    results_df = results_df, 
                                    save_path=save_path, 
                                    device=device, 
-                                   epochs=10, 
+                                   epochs=5, 
                                    batch_size=32)
 
     results_df.to_csv(save_path / "train_results.csv", index=False)
