@@ -25,7 +25,7 @@ def load_data(df_path):
     all_labels = Counter()
     for labels in data['summarizations']:
         all_labels.update(labels)
-    # list of most common keys
+    # list of most common keys1
     all_labels = [label for label, _ in all_labels.most_common()]
 
     n_samples = data.shape[0]
@@ -212,6 +212,9 @@ def test_model(model, X, y, cid, mlb, epoch, kfold, batch_size=32, device="cpu",
     targets_df = pd.DataFrame(targets, index=cids, columns=mlb.classes_)
     targets_df.index.name = "cid"
     targets_df.reset_index(inplace=True)
+
+    # print average loss
+    print(f"Test loss: {np.mean(losses):.4f}")
     
     # save results to csv
     results.to_csv(save_path / "test_results.csv", index=False)
