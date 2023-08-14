@@ -92,79 +92,76 @@ def multilabel_loss(loss_func, pred, target):
     return losses
 
 
-def create_dataloader(X, y, batch_size=32):
+def create_dataloader(X, y, cid=None, batch_size=32):
     X_tensor = torch.from_numpy(X).float()
     y_tensor = torch.from_numpy(y).float()
-    dataset = torch.utils.data.TensorDataset(X_tensor, y_tensor)
+    if cid is not None:
+        cid_tensor = torch.from_numpy(cid).int()
+        dataset = torch.utils.data.TensorDataset(X_tensor, y_tensor, cid_tensor)
+    else:
+        dataset = torch.utils.data.TensorDataset(X_tensor, y_tensor)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
     return dataloader
 
-def train(model, X, y, lr_rate=0.001, epochs=10, batch_size=32, kfolds=10, save_path = "", device="cpu"):
+def train_model(model, X, y, train, valid, fold, results_df, lr_rate=0.001, epochs=10, batch_size=32, save_path = "", device="cpu"):
     print("Training model...")
-    kf = KFold(n_splits=kfolds, shuffle=True, random_state=42)
     optimizer = Adam(model.parameters(), lr=lr_rate)
     # n_total_steps = X.shape[0]
 
     loss_func = nn.BCEWithLogitsLoss()
+    losses = []
+    # checkpoint_losses_train = []
 
-    results_df = pd.DataFrame(columns=["fold", "epoch", "train_loss", "valid_loss"])
+    for epoch in range(epochs):
+        avg_epoch_train_loss = 0
+        # print("\nTraining fold", fold, "epoch", epoch+1)
+        for i, (batch_X, batch_y) in enumerate(create_dataloader(X[train], y[train], batch_size=batch_size)):
+            batch_X = batch_X.to(device)
+            batch_y = batch_y.to(device)
 
-    for fold, (train, valid) in enumerate(kf.split(X, y)):
-        losses = []
-        # checkpoint_losses_train = []
+            # forward pass
+            outputs = model(batch_X)
+            loss = multilabel_loss(loss_func, outputs, batch_y)
+            losses.append(loss.item())
+            avg_epoch_train_loss += loss.item()
 
-        for epoch in range(epochs):
-            avg_epoch_train_loss = 0
-            # print("\nTraining fold", fold, "epoch", epoch+1)
-            for i, (batch_X, batch_y) in enumerate(create_dataloader(X[train], y[train], batch_size=batch_size)):
-                batch_X = batch_X.to(device)
-                batch_y = batch_y.to(device)
+            # backward pass
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-                # forward pass
+            if (i+1) % 100 == 0:
+                print(f"Train: Fold {fold}, Epoch {epoch+1}/{epochs}, Batch {i+1}/{len(train)//batch_size}, Loss {loss.item():.4f}")
+                # checkpoint_losses_train.append(loss.item())
+        avg_epoch_train_loss /= len(train)//batch_size
+
+        # eval on test with batchloader
+        avg_epoch_valid_loss = 0
+        for i, (batch_X, batch_y) in enumerate(create_dataloader(X[valid], y[valid], batch_size=batch_size)):
+            batch_X = batch_X.to(device)
+            batch_y = batch_y.to(device)
+
+            with torch.no_grad():
                 outputs = model(batch_X)
+                # forward pass
                 loss = multilabel_loss(loss_func, outputs, batch_y)
-                losses.append(loss.item())
-                avg_epoch_train_loss += loss.item()
+                
+            avg_epoch_valid_loss += loss.item()
+        avg_epoch_valid_loss /= len(valid)//batch_size
+        print(f"\nValidation: Fold {fold}, Epoch {epoch+1}/{epochs}, Mean Loss {avg_epoch_valid_loss:.4f}")
 
-                # backward pass
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-                if (i+1) % 100 == 0:
-                    print(f"Train: Fold {fold}, Epoch {epoch+1}/{epochs}, Batch {i+1}/{len(train)//batch_size}, Loss {loss.item():.4f}")
-                    # checkpoint_losses_train.append(loss.item())
-            avg_epoch_train_loss /= len(train)//batch_size
-
-            # eval on test with batchloader
-            avg_epoch_valid_loss = 0
-            # checkpoint_losses_valid = []
-            for i, (batch_X, batch_y) in enumerate(create_dataloader(X[valid], y[valid], batch_size=batch_size)):
-                batch_X = batch_X.to(device)
-                batch_y = batch_y.to(device)
-
-                with torch.no_grad():
-                    outputs = model(batch_X)
-                    # forward pass
-                    loss = multilabel_loss(loss_func, outputs, batch_y)
-                    # checkpoint_losses_valid.append(loss.item())
-                    #         
-                avg_epoch_valid_loss += loss.item()
-            avg_epoch_valid_loss /= len(valid)//batch_size
-            print(f"\nValidation: Fold {fold}, Epoch {epoch+1}/{epochs}, Mean Loss {loss.item():.4f}\n")
-
-            # save results to df
-            results_df = results_df.append({"fold": fold, "epoch": epoch+1, "train_loss": avg_epoch_train_loss, "valid_loss": avg_epoch_valid_loss}, ignore_index=True)
-            
-            # save model each epoch
-            torch.save(model.state_dict(), f"{save_path}/fold_{fold}_epoch_{epoch+1}.pth")
+        # save results to df
+        results_df = pd.concat([results_df, pd.DataFrame({"fold": fold, "epoch": epoch+1, "train_loss": avg_epoch_train_loss, "valid_loss": avg_epoch_valid_loss}, index=[0])], ignore_index=True)
+        
+        # save model each epoch
+        torch.save(model.state_dict(), f"{save_path}/fold_{fold}_epoch_{epoch+1}.pth")
 
     return losses, results_df
 
 
 
 
-def test(model, X, y, cid, mlb, epoch, kfold, batch_size=32, device="cpu", save_path=""):
+def test_model(model, X, y, cid, mlb, epoch, kfold, batch_size=32, device="cpu", save_path=""):
     """
     Test set eval that saves results to csv (with cid, pred, target, and converted labels)
 
@@ -211,6 +208,8 @@ def test(model, X, y, cid, mlb, epoch, kfold, batch_size=32, device="cpu", save_
 
 
 def main():
+
+    kfolds=10
     df_path = '../../results/schembl_summs_v5_final_fp.pkl'
     save_path = Path("models/fp_nn")
     save_path.mkdir(parents=True, exist_ok=True)
@@ -224,8 +223,22 @@ def main():
     # hold out test set
     X_train, X_test, y_train, y_test, cid_train, cid_test = train_test_split(X, y, cid, test_size=0.1, random_state=42)
     
+    # train model
     model, device = load_model_device()
-    losses, results_df = train(model, X_train, X_test, save_path=save_path, device=device, epochs=3, batch_size=32, kfolds=10)
+    results_df = pd.DataFrame(columns=["fold", "epoch", "train_loss", "valid_loss"])
+    kf = KFold(n_splits=kfolds, shuffle=True, random_state=42)
+    for fold, (train, valid) in enumerate(kf.split(X, y)):
+        losses, results_df = train_model(model = model,
+                                   X = X,
+                                   y = y,
+                                   train = train,
+                                   valid = valid,
+                                   fold = fold, 
+                                   results_df = results_df, 
+                                   save_path=save_path, 
+                                   device=device, 
+                                   epochs=10, 
+                                   batch_size=32)
 
     # save losses
     np.save(save_path / "losses.npy", losses)
@@ -237,7 +250,7 @@ def main():
 
     # load best model
     model.load_state_dict(torch.load(f"{save_path}/fold_{best_fold}_epoch_{best_epoch+1}.pth"))
-    test(model, X_test, y_test, cid_test, mlb, epoch=best_epoch, kfold=best_fold, save_path=save_path)
+    test_model(model, X_test, y_test, cid_test, mlb, epoch=best_epoch, kfold=best_fold, save_path=save_path)
 
     print("Done! Thank you for your patience.")
 
