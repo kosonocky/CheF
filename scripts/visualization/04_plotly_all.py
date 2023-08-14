@@ -8,10 +8,11 @@ from collections import Counter
 import pickle as pkl
 
 # NOTE used to create pkl files. Using pkl for faster loading
-df = pd.read_pickle("schembl_summs_v4_final_cb_fp_tsne_umap.pkl")
-with open("sorted_terms.pkl", "rb") as f:
-    # pickle
-    sorted_terms = pkl.load(f)
+df = pd.read_pickle("../../results/schembl_summs_v5_final_fp_cb_tsne_umap.pkl")
+with open("../../results/all_labels.txt", "r") as f:
+    sorted_terms = f.read().splitlines()
+
+    
 
 
 
