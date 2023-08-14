@@ -217,6 +217,10 @@ def main():
     
     X, y, cid, mlb = load_data(df_path)
 
+    # save mlb
+    with open(save_path / "mlb.pkl", "wb") as f:
+        pkl.dump(mlb, f)
+
     # hold out test set
     X_train, X_test, y_train, y_test, cid_train, cid_test = train_test_split(X, y, cid, test_size=0.1, random_state=42)
     
@@ -233,12 +237,10 @@ def main():
 
     # load best model
     model.load_state_dict(torch.load(f"{save_path}/fold_{best_fold}_epoch_{best_epoch+1}.pth"))
-    test_results = test(model, X_test, y_test, cid_test, mlb, epoch=best_epoch, kfold=best_fold, save_path=save_path)
+    test(model, X_test, y_test, cid_test, mlb, epoch=best_epoch, kfold=best_fold, save_path=save_path)
 
+    print("Done! Thank you for your patience.")
 
-    # save mlb
-    with open(save_path / "mlb.pkl", "wb") as f:
-        pkl.dump(mlb, f)
 
 if __name__ == '__main__':
     main()
