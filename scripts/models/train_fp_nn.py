@@ -1,6 +1,7 @@
 import time
 import pickle as pkl
 import pandas as pd
+import argparse
 pd.options.mode.chained_assignment = None  # default='warn'
 import numpy as np
 from collections import Counter
@@ -55,22 +56,58 @@ def load_data(df_path):
 
 
 class MultilabelClassifier(nn.Module):
-    def __init__(self, ):
+    def __init__(self, d_input=2048, d_hidden_1=0, d_hidden_2=0, d_hidden_3=0, d_output=1544):
         super().__init__()
         self.dropout = nn.Dropout(0.2)
-        self.fc1 = nn.Linear(2048, 1024)
-        self.fc2 = nn.Linear(1024, 1544)
+        if (d_hidden_1 == 0) and (d_hidden_2 == 0) and (d_hidden_3 == 0):
+            self.fc1 = nn.Linear(d_input, d_output)
+            self.n_hidden_layers = 0
+        elif (d_hidden_1 != 0) and (d_hidden_2 == 0) and (d_hidden_3 == 0):
+            self.fc1 = nn.Linear(d_input, d_hidden_1)
+            self.fc2 = nn.Linear(d_hidden_1, d_output)
+            self.n_hidden_layers = 1
+        elif (d_hidden_1 != 0) and (d_hidden_2 != 0) and (d_hidden_3 == 0):
+            self.fc1 = nn.Linear(d_input, d_hidden_1)
+            self.fc2 = nn.Linear(d_hidden_1, d_hidden_2)
+            self.fc3 = nn.Linear(d_hidden_2, d_output)
+            self.n_hidden_layers = 2
+        elif (d_hidden_1 != 0) and (d_hidden_2 != 0) and (d_hidden_3 != 0):
+            self.fc1 = nn.Linear(d_input, d_hidden_1)
+            self.fc2 = nn.Linear(d_hidden_1, d_hidden_2)
+            self.fc3 = nn.Linear(d_hidden_2, d_hidden_3)
+            self.fc4 = nn.Linear(d_hidden_3, d_output)
+            self.n_hidden_layers = 3
+        else:
+            raise ValueError("Invalid number of hidden layers.")
 
     def forward(self, x):
         x = self.dropout(x)
-        x = self.fc1(x)
-        x = self.fc2(x)
+        if self.n_hidden_layers == 0:
+            x = self.fc1(x)
+        elif self.n_hidden_layers == 1:
+            x = self.fc1(x)
+            x = self.dropout(x)
+            x = self.fc2(x)
+        elif self.n_hidden_layers == 2:
+            x = self.fc1(x)
+            x = self.dropout(x)
+            x = self.fc2(x)
+            x = self.dropout(x)
+            x = self.fc3(x)
+        else:
+            x = self.fc1(x)
+            x = self.dropout(x)
+            x = self.fc2(x)
+            x = self.dropout(x)
+            x = self.fc3(x)
+            x = self.dropout(x)
+            x = self.fc4(x)
         return x
     
 
 
-def load_model_device():
-    model = MultilabelClassifier()
+def load_model_device(d_input=2048, d_hidden_1=None, d_hidden_2=None, d_hidden_3=None, d_output=1544):
+    model = MultilabelClassifier(d_input=d_input, d_hidden_1=d_hidden_1, d_hidden_2=d_hidden_2, d_hidden_3=d_hidden_3, d_output=d_output)
     
     if torch.cuda.is_available():
         device = torch.device("cuda:0")
@@ -222,16 +259,28 @@ def test_model(model, X, y, cid, mlb, epoch, kfold, batch_size=32, device="cpu",
 
 
 
-def main():
+def main(args):
     t0 = time.time()
-    kfolds=10
-    df_path = '../../results/schembl_summs_v5_final_fp.pkl'
-    save_path = Path("models/fp_nn")
+
+    d_input = args.d_input
+    d_hidden_1 = args.d_hidden_1
+    d_hidden_2 = args.d_hidden_2
+    d_hidden_3 = args.d_hidden_3
+    d_output = args.d_output
+    kfolds = args.k_folds
+    epochs = args.n_epochs
+    batch_size = args.batch_size
+
+    # save args with unique filename to txt file
+    save_path = Path(f"models/fp_nn/di{d_input}_dh1{d_hidden_1}_dh2{d_hidden_2}_dh3{d_hidden_3}_do{d_output}_kcv{kfolds}_e{epochs}_bs{batch_size}")
     save_path.mkdir(parents=True, exist_ok=True)
     
+    print("Saving to", save_path)
+    with open(save_path / "args.txt", "w") as f:
+        f.write(str(args))
+    
+    df_path = '../../results/schembl_summs_v5_final_fp.pkl'
     X, y, cid, mlb = load_data(df_path)
-
-    # save mlb
     with open(save_path / "mlb.pkl", "wb") as f:
         pkl.dump(mlb, f)
 
@@ -242,7 +291,11 @@ def main():
     results_df = pd.DataFrame(columns=["fold", "epoch", "train_loss", "valid_loss"])
     kf = KFold(n_splits=kfolds, shuffle=True, random_state=42)
     for fold, (train, valid) in enumerate(kf.split(X_train, y_train)):
-        model, device = load_model_device()
+        model, device = load_model_device(d_input=d_input,
+                                            d_hidden_1=d_hidden_1,
+                                            d_hidden_2=d_hidden_2,
+                                            d_hidden_3=d_hidden_3,
+                                            d_output=d_output)
         results_df = train_model(model = model,
                                    X = X_train,
                                    y = y_train,
@@ -252,8 +305,8 @@ def main():
                                    results_df = results_df, 
                                    save_path=save_path, 
                                    device=device, 
-                                   epochs=5, 
-                                   batch_size=32)
+                                   epochs=epochs, 
+                                   batch_size=batch_size)
 
     results_df.to_csv(save_path / "train_results.csv", index=False)
 
@@ -279,4 +332,14 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--d_input", type=int, default=2048, help="Dimension of input layer.")
+    parser.add_argument("--d_hidden_1", type=int, default=0, help="Dimension of first hidden layer.")
+    parser.add_argument("--d_hidden_2", type=int, default=0, help="Dimension of second hidden layer.")
+    parser.add_argument("--d_hidden_3", type=int, default=0, help="Dimension of third hidden layer.")
+    parser.add_argument("--d_output", type=int, default=1544, help="Dimension of output layer.")
+    parser.add_argument("--k_folds", type=int, default=10, help="Number of folds for k-fold cross validation.")
+    parser.add_argument("--n_epochs", type=int, default=10, help="Number of epochs to train for.")
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size for training.")
+    args = parser.parse_args()
+    main(args)
