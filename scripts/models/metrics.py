@@ -40,13 +40,13 @@ def main():
     print(f"Weighted Average Precision: {weighted_avg_prec}")
 
     # write results to csv
-    metrics_df = pd.DataFrame({"macro_roc_auc": [macro_roc_auc], "weighted_roc_auc": [weighted_roc_auc], "macro_avg_prec": [macro_avg_prec], "weighted_avg_prec": [weighted_avg_prec]})
-    metrics_df.to_csv("test_metrics.csv", index=False)
+    agg_metrics_df = pd.DataFrame({"macro_roc_auc": [macro_roc_auc], "weighted_roc_auc": [weighted_roc_auc], "macro_avg_prec": [macro_avg_prec], "weighted_avg_prec": [weighted_avg_prec]})
+    agg_metrics_df.to_csv("test_metrics_agg.csv", index=False)
 
-
-
-
-
+    metrics_df = pd.DataFrame(columns=preds_df.iloc[:, 1:].columns)
+    metrics_df.loc["roc_auc"] = roc_auc
+    metrics_df.loc["avg_prec"] = avg_prec
+    metrics_df.to_csv("test_metrics_indiv.csv", index=False)
 
 if __name__ == '__main__':
     main()
