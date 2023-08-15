@@ -46,7 +46,9 @@ def main():
     metrics_df = pd.DataFrame(columns=preds_df.iloc[:, 1:].columns)
     metrics_df.loc["roc_auc"] = roc_auc
     metrics_df.loc["avg_prec"] = avg_prec
-    metrics_df.to_csv("test_metrics_indiv.csv", index=False)
+    # pivot
+    metrics_df = metrics_df.T
+    metrics_df.to_csv("test_metrics_indiv.csv", index=True)
 
 if __name__ == '__main__':
     main()
