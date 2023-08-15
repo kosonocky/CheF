@@ -7,8 +7,8 @@ import numpy as np
 from collections import Counter
 from pathlib import Path
 from sklearn.preprocessing import MultiLabelBinarizer, StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import KFold
+from sklearn.model_selection import train_test_split, KFold
+from sklearn.metrics import roc_auc_score, average_precision_score
 import torch
 import torch.nn as nn
 from torch.optim import Adam
@@ -144,15 +144,12 @@ def create_dataloader(X, y, cid=None, batch_size=32):
 def train_model(model, X, y, train, valid, fold, results_df, lr_rate=0.001, epochs=10, batch_size=32, save_path = "", device="cpu"):
     print("Training model...")
     optimizer = Adam(model.parameters(), lr=lr_rate)
-    # n_total_steps = X.shape[0]
 
     loss_func = nn.BCEWithLogitsLoss()
     losses = []
-    # checkpoint_losses_train = []
 
     for epoch in range(epochs):
         avg_epoch_train_loss = 0
-        # print("\nTraining fold", fold, "epoch", epoch+1)
         for i, (batch_X, batch_y) in enumerate(create_dataloader(X[train], y[train], batch_size=batch_size)):
             batch_X = batch_X.to(device)
             batch_y = batch_y.to(device)
@@ -169,7 +166,7 @@ def train_model(model, X, y, train, valid, fold, results_df, lr_rate=0.001, epoc
             optimizer.step()
 
             if (i+1) % 100 == 0:
-                print(f"Train: Fold {fold}, Epoch {epoch+1}/{epochs}, Batch {i+1}/{len(train)//batch_size}, Loss {loss.item():.4f}")
+                print(f"Train: Fold {fold}, Epoch {epoch}/{epochs}, Batch {i}/{len(train)//batch_size}, Loss {loss.item():.4f}")
                 # checkpoint_losses_train.append(loss.item())
         avg_epoch_train_loss /= len(train)//batch_size
 
@@ -186,16 +183,16 @@ def train_model(model, X, y, train, valid, fold, results_df, lr_rate=0.001, epoc
                 
             avg_epoch_valid_loss += loss.item()
         avg_epoch_valid_loss /= len(valid)//batch_size
-        print(f"\nValidation: Fold {fold}, Epoch {epoch+1}/{epochs}, Mean Loss {avg_epoch_valid_loss:.4f}")
+        print(f"\nValidation: Fold {fold}, Epoch {epoch}/{epochs}, Mean Loss {avg_epoch_valid_loss:.4f}")
 
         # save results to df
-        results_df = pd.concat([results_df, pd.DataFrame({"fold": fold, "epoch": epoch+1, "train_loss": avg_epoch_train_loss, "valid_loss": avg_epoch_valid_loss}, index=[0])], ignore_index=True)
+        results_df = pd.concat([results_df, pd.DataFrame({"fold": fold, "epoch": epoch, "train_loss": avg_epoch_train_loss, "valid_loss": avg_epoch_valid_loss}, index=[0])], ignore_index=True)
         
         # save model each epoch
-        torch.save(model.state_dict(), f"{save_path}/fold_{fold}_epoch_{epoch+1}.pth")
+        torch.save(model.state_dict(), f"{save_path}/fold_{fold}_epoch_{epoch}.pth")
 
         # save losses
-        np.save(f"{save_path}/fold_{fold}_epoch_{epoch+1}_train_losses.npy", losses)
+        np.save(f"{save_path}/fold_{fold}_epoch_{epoch}_train_losses.npy", losses)
 
     return results_df
 
@@ -241,9 +238,9 @@ def test_model(model, X, y, cid, mlb, epoch, kfold, batch_size=32, device="cpu",
 
     # create df with cid, pred or target in rows
     # and in each column, the label is a column with the value being the probability
-    results = pd.DataFrame(preds, index=cids, columns=mlb.classes_)
-    results.index.name = "cid"
-    results.reset_index(inplace=True)
+    preds_df = pd.DataFrame(preds, index=cids, columns=mlb.classes_)
+    preds_df.index.name = "cid"
+    preds_df.reset_index(inplace=True)
 
     # add in targets as rows, with probabilities in each column
     targets_df = pd.DataFrame(targets, index=cids, columns=mlb.classes_)
@@ -254,9 +251,50 @@ def test_model(model, X, y, cid, mlb, epoch, kfold, batch_size=32, device="cpu",
     print(f"Test loss: {np.mean(losses):.4f}")
     
     # save results to csv
-    results.to_csv(save_path / "test_results.csv", index=False)
+    preds_df.to_csv(save_path / "test_preds.csv", index=False)
     targets_df.to_csv(save_path / "test_targets.csv", index=False)
 
+    return preds_df, targets_df
+
+def roc_pr_auc_scores(preds_df, targets_df, best_kfold, best_epoch):
+    # sort by cid
+    preds_df = preds_df.sort_values(by=["cid"])
+    targets_df = targets_df.sort_values(by=["cid"])
+    # drop columns from preds and targets if targets have all 0s
+    preds_df = preds_df.loc[:, (targets_df != 0).any(axis=0)]
+    targets_df = targets_df.loc[:, (targets_df != 0).any(axis=0)]
+    
+    # assumes CID is first column
+    preds = preds_df.iloc[:, 1:].to_numpy()
+    targets = targets_df.iloc[:, 1:].to_numpy()    
+
+    # roc_auc_score
+    roc_auc = roc_auc_score(targets, preds, average=None)
+    macro_roc_auc = roc_auc_score(targets, preds, average="macro")
+    weighted_roc_auc = roc_auc_score(targets, preds, average="weighted")   
+
+    # average_precision_score
+    avg_prec = average_precision_score(targets, preds, average=None)
+    macro_avg_prec = average_precision_score(targets, preds, average="macro")
+    weighted_avg_prec = average_precision_score(targets, preds, average="weighted")
+
+    print("Test set results:")
+    print(f"Macro ROC AUC: {macro_roc_auc}")
+    print(f"Weighted ROC AUC: {weighted_roc_auc}")
+    print(f"Macro Average Precision: {macro_avg_prec}")
+    print(f"Weighted Average Precision: {weighted_avg_prec}")
+
+    # write results to csv
+    agg_metrics_df = pd.DataFrame({"macro_roc_auc": [macro_roc_auc], "weighted_roc_auc": [weighted_roc_auc], "macro_avg_prec": [macro_avg_prec], "weighted_avg_prec": [weighted_avg_prec]})
+    agg_metrics_df.to_csv(f"test_metrics_agg_k{best_kfold}_e{best_epoch}.csv", index=False)
+
+    # I know there's a better way to do this, but this works
+    indiv_metrics_df = pd.DataFrame(columns=preds_df.iloc[:, 1:].columns)
+    indiv_metrics_df.loc["roc_auc"] = roc_auc
+    indiv_metrics_df.loc["avg_prec"] = avg_prec
+    # pivot
+    indiv_metrics_df = indiv_metrics_df.T
+    indiv_metrics_df.to_csv(f"test_metrics_indiv_{best_kfold}_e{best_epoch}.csv", index=True)
 
 
 def main(args):
@@ -321,10 +359,14 @@ def main(args):
 
     # load best model
     model, device = load_model_device()
-    model.load_state_dict(torch.load(f"{save_path}/fold_{best_fold}_epoch_{best_epoch+1}.pth"))
+    model.load_state_dict(torch.load(f"{save_path}/fold_{best_fold}_epoch_{best_epoch}.pth"))
 
-    # test model
-    test_model(model, X_test, y_test, cid_test, mlb, epoch=best_epoch, kfold=best_fold, save_path=save_path, device=device)
+    # test model to get loss, and save results to csv
+    preds_df, targets_df = test_model(model, X_test, y_test, cid_test, mlb, epoch=best_epoch, kfold=best_fold, save_path=save_path, device=device)
+
+    # calculate roc_auc and average_precision scores
+    roc_pr_auc_scores(preds_df, targets_df, best_kfold=best_fold, best_epoch=best_epoch)
+
 
 
     print("Done! Thank you for your patience.")
