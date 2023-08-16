@@ -234,6 +234,7 @@ def train_model_only(model, X, y, results_df, lr_rate=0.001, epochs=10, batch_si
 def main(args):
     t0 = time.time()
 
+    # unpack args
     d_input = args.d_input
     d_hidden_1 = args.d_hidden_1
     d_hidden_2 = args.d_hidden_2
@@ -243,14 +244,17 @@ def main(args):
     epochs = args.n_epochs
     batch_size = args.batch_size
 
-    # save args with unique filename to txt file
+    # set save path
     save_path = Path(f"models/fp_nn/di{d_input}_dh1{d_hidden_1}_dh2{d_hidden_2}_dh3{d_hidden_3}_do{d_output}_kcv{kfolds}_e{epochs}_bs{batch_size}")
     save_path.mkdir(parents=True, exist_ok=True)
-    
     print("Saving to", save_path)
-    with open(save_path / "args.txt", "w") as f:
-        f.write(str(args))
     
+    # save args with unique filename to txt file
+    with open(save_path / "args.txt", "w") as f:
+        for arg in vars(args):
+            f.write(f"{arg}: {getattr(args, arg)}\n")
+    
+    # load data, create X, y, and mlb (binary labels matrix)
     df_path = '../../results/schembl_summs_v5_final_fp.pkl'
     X, y, cid, mlb = load_data(df_path)
     with open(save_path / "mlb.pkl", "wb") as f:
@@ -280,14 +284,22 @@ def main(args):
                                    epochs=epochs, 
                                    batch_size=batch_size)
     
-    # get average train and valid loss for each epoch
-    results_df = results_df.groupby(["epoch"]).mean().reset_index()
     results_df.to_csv(save_path / "train_kfold_valid_results.csv", index=False)
 
-    # find the epoch with the lowest validation loss
-    min_loss = results_df['valid_loss'].min()
-    best_idx = int(results_df['valid_loss'].idxmin())
-    best_epoch = int(results_df.iloc[best_idx]["epoch"])
+    # get average train and valid loss for each epoch
+    results_df = results_df.groupby(["epoch"]).mean().reset_index()
+    results_df = results_df.drop(columns=["fold"])
+    results_df.to_csv(save_path / "train_kfold_valid_results_epoch_mean.csv", index=False)
+
+    # save text file of best performing epoch, and the mean loss for that epoch
+    best_epoch = int(results_df['valid_loss'].idxmin())
+    print(f"Best epoch: {best_epoch}")
+    print(f"Mean train loss: {results_df.iloc[best_epoch]['train_loss']:.4f}")
+    print(f"Mean valid loss: {results_df.iloc[best_epoch]['valid_loss']:.4f}")
+    with open(save_path / "best_model_epoch_train_valid_loss.txt", "w") as f:
+        f.write(f"Best epoch: {best_epoch}\n")
+        f.write(f"Mean train loss: {results_df.iloc[best_epoch]['train_loss']:.4f}\n")
+        f.write(f"Mean valid loss: {results_df.iloc[best_epoch]['valid_loss']:.4f}\n")
 
     # train model on entire training set
     model, device = load_model_device(d_input=d_input,
@@ -295,7 +307,7 @@ def main(args):
                                         d_hidden_2=d_hidden_2,
                                         d_hidden_3=d_hidden_3,
                                         d_output=d_output)
-    results_df = train_model_only(model = model,
+    best_model_results_df = train_model_only(model = model,
                                       X = X_train,
                                       y = y_train,
                                       results_df = results_df, 
@@ -304,7 +316,7 @@ def main(args):
                                       epochs=best_epoch+1, 
                                       batch_size=batch_size)
 
-    results_df.to_csv(save_path / "best_model_results.csv", index=False)
+    best_model_results_df.to_csv(save_path / "best_model_results.csv", index=False)
 
     print("Done! Thank you for your patience.")
     print(f"Total time: {time.time()-t0:.2f} seconds")
