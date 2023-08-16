@@ -141,7 +141,7 @@ def create_dataloader(X, y, cid=None, batch_size=32):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
     return dataloader
 
-def train_model(model, X, y, train, valid, fold, results_df, lr_rate=0.001, epochs=10, batch_size=32, save_path = "", device="cpu"):
+def train_model_kfold(model, X, y, train, valid, fold, results_df, lr_rate=0.001, epochs=10, batch_size=32, save_path = "", device="cpu"):
     print("Training model...")
     optimizer = Adam(model.parameters(), lr=lr_rate)
 
@@ -188,113 +188,47 @@ def train_model(model, X, y, train, valid, fold, results_df, lr_rate=0.001, epoc
         # save results to df
         results_df = pd.concat([results_df, pd.DataFrame({"fold": fold, "epoch": epoch, "train_loss": avg_epoch_train_loss, "valid_loss": avg_epoch_valid_loss}, index=[0])], ignore_index=True)
         
-        # save model each epoch
-        torch.save(model.state_dict(), f"{save_path}/fold_{fold}_epoch_{epoch}.pth")
-
-        # save losses
-        np.save(f"{save_path}/fold_{fold}_epoch_{epoch}_train_losses.npy", losses)
-
     return results_df
 
 
 
+def train_model_only(model, X, y, results_df, lr_rate=0.001, epochs=10, batch_size=32, save_path = "", device="cpu"):
+    optimizer = Adam(model.parameters(), lr=lr_rate)
 
-def test_model(model, X, y, cid, mlb, epoch, kfold, batch_size=32, device="cpu", save_path=""):
-    """
-    Test set eval that saves results to csv (with cid, pred, target, and converted labels)
-
-    """
-
-    print("Testing model...")
     loss_func = nn.BCEWithLogitsLoss()
-    model.eval()
     losses = []
-    preds = []
-    targets = []
-    cids = []
-    for i, (batch_X, batch_y, batch_cid) in enumerate(create_dataloader(X, y, cid, batch_size=batch_size)):
-        batch_X = batch_X.to(device)
-        batch_y = batch_y.to(device)
 
-        with torch.no_grad():
-            outputs = model(batch_X)
+    for epoch in range(epochs):
+        avg_epoch_train_loss = 0
+        for i, (batch_X, batch_y) in enumerate(create_dataloader(X, y, batch_size=batch_size)):
+            batch_X = batch_X.to(device)
+            batch_y = batch_y.to(device)
+
             # forward pass
+            outputs = model(batch_X)
             loss = multilabel_loss(loss_func, outputs, batch_y)
             losses.append(loss.item())
+            avg_epoch_train_loss += loss.item()
 
-            # save preds and targets
-            preds.append(outputs.cpu().numpy())
-            targets.append(batch_y.cpu().numpy())
+            # backward pass
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-            # save cid
-            cids.append(batch_cid)
+            if (i+1) % 100 == 0:
+                print(f"Train: Epoch {epoch}/{epochs}, Batch {i}/{len(X)//batch_size}, Loss {loss.item():.4f}")
+                
+        avg_epoch_train_loss /= len(X)//batch_size
 
-    preds = np.vstack(preds)
-    targets = np.vstack(targets)
-    cids = np.hstack(cids)
+        # save results to df
+        results_df = pd.concat([results_df, pd.DataFrame({"epoch": epoch, "train_loss": avg_epoch_train_loss,}, index=[0])], ignore_index=True)
 
-    # sigmoid activate preds
-    preds = 1 / (1 + np.exp(-preds))
+    print("Saving model...")
+    torch.save(model.state_dict(), f"{save_path}/best_model.pth")
+    np.save(f"{save_path}/best_model_losses.npy", losses)
 
-    # create df with cid, pred or target in rows
-    # and in each column, the label is a column with the value being the probability
-    preds_df = pd.DataFrame(preds, index=cids, columns=mlb.classes_)
-    preds_df.index.name = "cid"
-    preds_df.reset_index(inplace=True)
+    return results_df
 
-    # add in targets as rows, with probabilities in each column
-    targets_df = pd.DataFrame(targets, index=cids, columns=mlb.classes_)
-    targets_df.index.name = "cid"
-    targets_df.reset_index(inplace=True)
-
-    # print average loss
-    print(f"Test loss: {np.mean(losses):.4f}")
-    
-    # save results to csv
-    preds_df.to_csv(save_path / "test_preds.csv", index=False)
-    targets_df.to_csv(save_path / "test_targets.csv", index=False)
-
-    return preds_df, targets_df
-
-def roc_pr_auc_scores(preds_df, targets_df, best_kfold, best_epoch):
-    # sort by cid
-    preds_df = preds_df.sort_values(by=["cid"])
-    targets_df = targets_df.sort_values(by=["cid"])
-    # drop columns from preds and targets if targets have all 0s
-    preds_df = preds_df.loc[:, (targets_df != 0).any(axis=0)]
-    targets_df = targets_df.loc[:, (targets_df != 0).any(axis=0)]
-    
-    # assumes CID is first column
-    preds = preds_df.iloc[:, 1:].to_numpy()
-    targets = targets_df.iloc[:, 1:].to_numpy()    
-
-    # roc_auc_score
-    roc_auc = roc_auc_score(targets, preds, average=None)
-    macro_roc_auc = roc_auc_score(targets, preds, average="macro")
-    weighted_roc_auc = roc_auc_score(targets, preds, average="weighted")   
-
-    # average_precision_score
-    avg_prec = average_precision_score(targets, preds, average=None)
-    macro_avg_prec = average_precision_score(targets, preds, average="macro")
-    weighted_avg_prec = average_precision_score(targets, preds, average="weighted")
-
-    print("Test set results:")
-    print(f"Macro ROC AUC: {macro_roc_auc}")
-    print(f"Weighted ROC AUC: {weighted_roc_auc}")
-    print(f"Macro Average Precision: {macro_avg_prec}")
-    print(f"Weighted Average Precision: {weighted_avg_prec}")
-
-    # write results to csv
-    agg_metrics_df = pd.DataFrame({"macro_roc_auc": [macro_roc_auc], "weighted_roc_auc": [weighted_roc_auc], "macro_avg_prec": [macro_avg_prec], "weighted_avg_prec": [weighted_avg_prec]})
-    agg_metrics_df.to_csv(f"test_metrics_agg_k{best_kfold}_e{best_epoch}.csv", index=False)
-
-    # I know there's a better way to do this, but this works
-    indiv_metrics_df = pd.DataFrame(columns=preds_df.iloc[:, 1:].columns)
-    indiv_metrics_df.loc["roc_auc"] = roc_auc
-    indiv_metrics_df.loc["avg_prec"] = avg_prec
-    # pivot
-    indiv_metrics_df = indiv_metrics_df.T
-    indiv_metrics_df.to_csv(f"test_metrics_indiv_{best_kfold}_e{best_epoch}.csv", index=True)
 
 
 def main(args):
@@ -334,7 +268,7 @@ def main(args):
                                             d_hidden_2=d_hidden_2,
                                             d_hidden_3=d_hidden_3,
                                             d_output=d_output)
-        results_df = train_model(model = model,
+        results_df = train_model_kfold(model = model,
                                    X = X_train,
                                    y = y_train,
                                    train = train,
@@ -345,29 +279,32 @@ def main(args):
                                    device=device, 
                                    epochs=epochs, 
                                    batch_size=batch_size)
+    
+    # get average train and valid loss for each epoch
+    results_df = results_df.groupby(["epoch"]).mean().reset_index()
+    results_df.to_csv(save_path / "train_kfold_valid_results.csv", index=False)
 
-    results_df.to_csv(save_path / "train_results.csv", index=False)
-
-
-    # find the epoch and fold with the lowest validation loss
+    # find the epoch with the lowest validation loss
     min_loss = results_df['valid_loss'].min()
     best_idx = int(results_df['valid_loss'].idxmin())
     best_epoch = int(results_df.iloc[best_idx]["epoch"])
-    best_fold = int(results_df.iloc[best_idx]["fold"])
 
-    print(f"Best epoch: {best_epoch}", f"Best fold: {best_fold}", f"Best loss: {min_loss}", sep="\n")
+    # train model on entire training set
+    model, device = load_model_device(d_input=d_input,
+                                        d_hidden_1=d_hidden_1,
+                                        d_hidden_2=d_hidden_2,
+                                        d_hidden_3=d_hidden_3,
+                                        d_output=d_output)
+    results_df = train_model_only(model = model,
+                                      X = X_train,
+                                      y = y_train,
+                                      results_df = results_df, 
+                                      save_path=save_path, 
+                                      device=device, 
+                                      epochs=best_epoch+1, 
+                                      batch_size=batch_size)
 
-    # load best model
-    model, device = load_model_device()
-    model.load_state_dict(torch.load(f"{save_path}/fold_{best_fold}_epoch_{best_epoch}.pth"))
-
-    # test model to get loss, and save results to csv
-    preds_df, targets_df = test_model(model, X_test, y_test, cid_test, mlb, epoch=best_epoch, kfold=best_fold, save_path=save_path, device=device)
-
-    # calculate roc_auc and average_precision scores
-    roc_pr_auc_scores(preds_df, targets_df, best_kfold=best_fold, best_epoch=best_epoch)
-
-
+    results_df.to_csv(save_path / "best_model_results.csv", index=False)
 
     print("Done! Thank you for your patience.")
     print(f"Total time: {time.time()-t0:.2f} seconds")
