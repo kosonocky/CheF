@@ -8,46 +8,15 @@ from collections import Counter
 import pickle as pkl
 
 # NOTE used to create pkl files. Using pkl for faster loading
-df = pd.read_pickle("../../results/schembl_summs_v5_final_fp_cb_tsne_umap.pkl")
-with open("../../results/all_labels.txt", "r") as f:
+df = pd.read_pickle("../data/schembl_summs_v5_final_fp_cb_tsne_umap.pkl")
+with open("../data/all_labels.txt", "r") as f:
     sorted_terms = f.read().splitlines()
-
-    
-
-
-
-
-# # # plot
-# df["color"] = df["summarizations"].map(lambda x: "#FF6692" if "antiviral" in x else "black")
-# df["opacity"] = df["summarizations"].map(lambda x: 1 if "antiviral" in x else 0.3)
-# df["size"] = df["summarizations"].map(lambda x: 5 if "antiviral" in x else 1.5)
-# fig = go.Figure(data=[
-#     go.Scattergl(
-#         # x=df["cb_tsne_x"],
-#         # y=df["cb_tsne_y"],
-        
-#         x=df["fp_tsne_x"],
-#         y=df["fp_tsne_y"],
-#         mode="markers",
-#         marker=dict(
-#             opacity=df["opacity"],
-#             color=df["color"],
-#             size=df["size"],
-#             line={"color": "#000000"}, # black
-
-
-#         ),
-#         hoverinfo="skip",
-#     )
-# ])
 
 df_term_true = df[df["summarizations"].map(lambda x: True if "antiviral" in x else False)]
 df_term_false = df[df["summarizations"].map(lambda x: False if "antiviral" in x else True)]
 
 fig = go.Figure(data=[
     go.Scattergl(
-        # x=df[df["summarizations"].map(lambda x: False if "antiviral" in x else True)]["fp_tsne_x"],
-        # y=df[df["summarizations"].map(lambda x: False if "antiviral" in x else True)]["fp_tsne_y"],
         x=df[df["summarizations"].map(lambda x: False if "antiviral" in x else True)]["fp_tsne_x"],
         y=df[df["summarizations"].map(lambda x: False if "antiviral" in x else True)]["fp_tsne_y"],
         mode="markers",
@@ -61,8 +30,6 @@ fig = go.Figure(data=[
     ),
     go.Scattergl(
         # check if "antiviral" is in the df['summarizations'] list
-        # x=df[df["summarizations"].map(lambda x: True if "antiviral" in x else False)]["fp_tsne_x"],
-        # y=df[df["summarizations"].map(lambda x: True if "antiviral" in x else False)]["fp_tsne_y"],
         x=df[df["summarizations"].map(lambda x: True if "antiviral" in x else False)]["fp_tsne_x"],
         y=df[df["summarizations"].map(lambda x: True if "antiviral" in x else False)]["fp_tsne_y"],
         mode="markers",
@@ -101,12 +68,15 @@ fig.update_layout(showlegend=False)
 # hide axis and tick marks, and numbers
 fig.update_xaxes(showticklabels=False, showgrid=False, zeroline=False, visible=False)
 fig.update_yaxes(showticklabels=False, showgrid=False, zeroline=False, visible=False)
-
+# increase font size of axis ticks
+# fig.update_xaxes(tickfont=dict(size=28))
+# fig.update_yaxes(tickfont=dict(size=28))
 
 
 
 
 app = Dash(external_stylesheets=[dbc.themes.MINTY])
+server = app.server
 
 # make app background color match ggplot2
 app.layout = html.Div([
@@ -255,6 +225,8 @@ def update_output(value, data_to_plot):
     # hide axis and tick marks, and numbers
     fig.update_xaxes(showticklabels=False, showgrid=False, zeroline=False, visible=False)
     fig.update_yaxes(showticklabels=False, showgrid=False, zeroline=False, visible=False)
+    # fig.update_xaxes(tickfont=dict(size=28))
+    # fig.update_yaxes(tickfont=dict(size=28))
 
     return f'Showing molecules with label: {value}', fig, f"Plotting {data_to_plot}"
 

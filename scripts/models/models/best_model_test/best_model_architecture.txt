@@ -1,0 +1,10 @@
+model_path: models/fp_nn/di2048_dh11024_dh2512_dh3256_do1544_kcv5_e10_bs32/best_model.pth
+DataParallel(
+  (module): MultilabelClassifier(
+    (dropout): Dropout(p=0.2, inplace=False)
+    (fc1): Linear(in_features=2048, out_features=1024, bias=True)
+    (fc2): Linear(in_features=1024, out_features=512, bias=True)
+    (fc3): Linear(in_features=512, out_features=256, bias=True)
+    (fc4): Linear(in_features=256, out_features=1544, bias=True)
+  )
+)
