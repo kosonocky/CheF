@@ -4,6 +4,7 @@
 *.csv
 *.png
 *.tar.gz
+*.txt
 _archive
 
 
