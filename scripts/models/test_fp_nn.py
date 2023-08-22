@@ -14,11 +14,56 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam
 
-from train_fp_nn import load_data, load_model_device, test_model, create_dataloader, multilabel_loss
+from train_fp_nn import load_model_device, create_dataloader, multilabel_loss
+
+
+def load_data_test(df_path, mlb_path, scaler_path):
+    """
+    Loads mlb and scaler (this is not used for training)
+    """
+    print("Creating dataset...")
+    df = pd.read_pickle(df_path)
+    data = df[['fingerprint', 'summarizations', "cid"]]
+    data["summarizations"] = data["summarizations"].map(set)
+
+    # create set of all labels
+    all_labels = Counter()
+    for labels in data['summarizations']:
+        all_labels.update(labels)
+    # list of most common keys1
+    all_labels = [label for label, _ in all_labels.most_common()]
+
+    n_samples = data.shape[0]
+    n_features = round(data['fingerprint'].apply(len).mean())
+    n_classes = len(all_labels)
+    n_labels = round(data['summarizations'].apply(len).mean())
+    print(f"n_samples: {n_samples}, n_features: {n_features}, n_classes: {n_classes}, n_labels: {n_labels}")
+
+    # create multi-label binary matrix
+    with open(mlb_path, "rb") as f:
+        mlb = pkl.load(f)
+    y = mlb.transform(data['summarizations'])
+    print(f"y.shape: {y.shape}")
+
+    # create X. This is done this way to prevent strange issue with pd dataframe & sparse matrix
+    X = np.zeros((n_samples, n_features))
+    for i, fp in enumerate(data['fingerprint']):
+        X[i, :] = np.array(list(fp))
+
+    # load standard scaler
+    with open(scaler_path, "rb") as f:
+        scaler = pkl.load(f)
+    X = scaler.transform(X)
+    print(f"X.shape: {X.shape}")
+    
+    # save cid
+    cid = data["cid"].values
+
+    return X, y, cid, mlb
 
 
 
-def roc_pr_auc_scores(preds_df, targets_df):
+def roc_pr_auc_scores(preds_df, targets_df, save_path = ""):
     # sort by cid
     preds_df = preds_df.sort_values(by=["cid"])
     targets_df = targets_df.sort_values(by=["cid"])
@@ -48,7 +93,7 @@ def roc_pr_auc_scores(preds_df, targets_df):
 
     # write results to csv
     agg_metrics_df = pd.DataFrame({"macro_roc_auc": [macro_roc_auc], "weighted_roc_auc": [weighted_roc_auc], "macro_avg_prec": [macro_avg_prec], "weighted_avg_prec": [weighted_avg_prec]})
-    agg_metrics_df.to_csv(f"test_metrics_agg.csv", index=False)
+    agg_metrics_df.to_csv(f"{save_path}/test_metrics_agg.csv", index=False)
 
     # I know there's a better way to do this, but this works
     indiv_metrics_df = pd.DataFrame(columns=preds_df.iloc[:, 1:].columns)
@@ -56,7 +101,7 @@ def roc_pr_auc_scores(preds_df, targets_df):
     indiv_metrics_df.loc["avg_prec"] = avg_prec
     # pivot
     indiv_metrics_df = indiv_metrics_df.T
-    indiv_metrics_df.to_csv(f"test_metrics_indiv.csv", index=True)
+    indiv_metrics_df.to_csv(f"{save_path}/test_metrics_indiv.csv", index=True)
 
 
 
@@ -121,23 +166,43 @@ def test_model(model, X, y, cid, mlb, batch_size=32, device="cpu", save_path="")
 def main():
     t0 = time.time()
     df_path = '../../results/schembl_summs_v5_final_fp.pkl'
-    save_path = Path("models/fp_nn/test")
+    save_path = Path("models/fp_nn/best_model_test")
     save_path.mkdir(parents=True, exist_ok=True)
+    best_model_path = "models/fp_nn/di-2048_dh1-512_dh2-256_dh3-0_do-1544_kcv-5_e-10_bs-32"
     
-    X, y, cid, mlb = load_data(df_path)
+    X, y, cid, mlb = load_data_test(df_path, mlb_path=f"{best_model_path}/mlb.pkl", scaler_path=f"{best_model_path}/std_scaler.pkl")
 
     # hold out test set
     X_train, X_test, y_train, y_test, cid_train, cid_test = train_test_split(X, y, cid, test_size=0.1, random_state=42)
     
+    d_input = int(best_model_path.split("/")[-1].split("_")[0].split("di-")[-1])
+    d_hidden_1 = int(best_model_path.split("/")[-1].split("_")[1].split("dh1-")[-1])
+    d_hidden_2 = int(best_model_path.split("/")[-1].split("_")[2].split("dh2-")[-1])
+    d_hidden_3 = int(best_model_path.split("/")[-1].split("_")[3].split("dh3-")[-1])
+    d_output = int(best_model_path.split("/")[-1].split("_")[4].split("do-")[-1])
+
+
     # load best model
-    model, device = load_model_device()
-    model.load_state_dict(torch.load(f"{save_path}/INSERT_HERE.pth"))
+    model, device = load_model_device(
+        d_input = d_input,
+        d_hidden_1 = d_hidden_1,
+        d_hidden_2 = d_hidden_2,
+        d_hidden_3 = d_hidden_3,
+        d_output = d_output,
+    )
+    model.load_state_dict(torch.load(best_model_path))
+
+    # write model architecture to file
+    with open(save_path / "best_model_architecture.txt", "w") as f:
+        f.write(f"model_path: {best_model_path}")
+        f.write("\n")
+        f.write(str(model))
 
     # test model to get loss, and save results to csv
     preds_df, targets_df = test_model(model, X_test, y_test, cid_test, mlb, save_path=save_path, device=device)
 
     # calculate roc_auc and average_precision scores
-    roc_pr_auc_scores(preds_df, targets_df)
+    roc_pr_auc_scores(preds_df, targets_df, save_path=save_path)
 
     print("Done! Thank you for your patience.")
     print(f"Total time: {time.time()-t0:.2f} seconds")
