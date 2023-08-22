@@ -5,6 +5,8 @@
 *.png
 *.tar.gz
 *.txt
+*.svg
+*.gephi
 _archive
 
 
