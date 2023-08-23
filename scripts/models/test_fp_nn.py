@@ -168,9 +168,9 @@ def main():
     df_path = '../../results/schembl_summs_v5_final_fp.pkl'
     save_path = Path("models/fp_nn/best_model_test")
     save_path.mkdir(parents=True, exist_ok=True)
-    best_model_path = "models/fp_nn/di-2048_dh1-512_dh2-256_dh3-0_do-1544_kcv-5_e-10_bs-32"
+    best_model_path = "models/fp_nn/di-2048_dh1-512_dh2-256_dh3-0_do-1543_kcv-5_e-10_bs-32"
     
-    X, y, cid, mlb = load_data_test(df_path, mlb_path=f"{best_model_path}/mlb.pkl", scaler_path=f"{best_model_path}/std_scaler.pkl")
+    X, y, cid, mlb = load_data_test(df_path, mlb_path=f"{best_model_path}/mlb.pkl", scaler_path=f"{best_model_path}/scaler.pkl")
 
     # hold out test set
     X_train, X_test, y_train, y_test, cid_train, cid_test = train_test_split(X, y, cid, test_size=0.1, random_state=42)
@@ -190,7 +190,7 @@ def main():
         d_hidden_3 = d_hidden_3,
         d_output = d_output,
     )
-    model.load_state_dict(torch.load(best_model_path))
+    model.load_state_dict(torch.load(f"{best_model_path}/best_model.pth"))
 
     # write model architecture to file
     with open(save_path / "best_model_architecture.txt", "w") as f:

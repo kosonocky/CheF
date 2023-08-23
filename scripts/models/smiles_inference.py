@@ -1,4 +1,5 @@
 import time
+import argparse
 import pickle as pkl
 import pandas as pd
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -80,9 +81,9 @@ def main(args):
     t0 = time.time()
     save_path = Path(f"inference/{cid}")
     save_path.mkdir(parents=True, exist_ok=True)
-    best_model_path = "models/fp_nn/di-2048_dh1-512_dh2-256_dh3-0_do-1544_kcv-5_e-10_bs-32"
+    best_model_path = "models/fp_nn/di-2048_dh1-512_dh2-256_dh3-0_do-1543_kcv-5_e-10_bs-32"
     
-    X = get_X_from_smiles(smiles, scaler_path=f"{best_model_path}/std_scaler.pkl")
+    X = get_X_from_smiles(smiles, scaler_path=f"{best_model_path}/scaler.pkl")
     
     with open(f"{best_model_path}/mlb.pkl", "rb") as f:
         mlb = pkl.load(f)
@@ -103,17 +104,25 @@ def main(args):
         d_hidden_3 = d_hidden_3,
         d_output = d_output,
     )
-    model.load_state_dict(torch.load(best_model_path/"best_model.pth"))
+    model.load_state_dict(torch.load(f"{best_model_path}/best_model.pth"))
 
     # test model to get loss, and save results to csv
     preds_df = inference(model, X, mlb, cid, device=device)
 
+    # transpose to get labels as rows
+    preds_df = preds_df.T
+
     # save results to csv, sorted by probability
-    preds_df.sort_values(by=0, ascending=False).to_csv(save_path / "predictions.csv", index=False)
+    preds_df.sort_values(by=0, ascending=False, inplace=True)
+    preds_df.to_csv(save_path / "predictions.csv", index=False)
     
     print("Done! Thank you for your patience.")
     print(f"Total time: {time.time()-t0:.2f} seconds")
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--smiles", help="smiles string of molecule")
+    parser.add_argument("--cid", default="", help="cid of molecule")
+    args = parser.parse_args()
+    main(args)
