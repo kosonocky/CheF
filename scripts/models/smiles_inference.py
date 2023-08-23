@@ -88,11 +88,11 @@ def main(args):
         mlb = pkl.load(f)
     
     # best_model_path = "models/fp_nn/di2048_dh11796_dh20_dh30_do1544_kcv5_e10_bs32/best_model.pth"
-    d_input = int(best_model_path.split("/")[-1].split("_")[0].split("di")[-1])
-    d_hidden_1 = int(best_model_path.split("/")[-1].split("_")[1].split("dh1")[-1])
-    d_hidden_2 = int(best_model_path.split("/")[-1].split("_")[2].split("dh2")[-1])
-    d_hidden_3 = int(best_model_path.split("/")[-1].split("_")[3].split("dh3")[-1])
-    d_output = int(best_model_path.split("/")[-1].split("_")[4].split("do")[-1])
+    d_input = int(best_model_path.split("/")[-1].split("_")[0].split("di-")[-1])
+    d_hidden_1 = int(best_model_path.split("/")[-1].split("_")[1].split("dh1-")[-1])
+    d_hidden_2 = int(best_model_path.split("/")[-1].split("_")[2].split("dh2-")[-1])
+    d_hidden_3 = int(best_model_path.split("/")[-1].split("_")[3].split("dh3-")[-1])
+    d_output = int(best_model_path.split("/")[-1].split("_")[4].split("do-")[-1])
 
 
     # load best model
