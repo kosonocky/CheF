@@ -46,7 +46,7 @@ def inference(model, X, mlb, cid="", batch_size=1, device="cpu"):
 
     """
 
-    print("Testing model...")
+    print("Inferencing model...")
     model.eval()
     preds = []
     X_tensor = torch.from_numpy(X).float().to(device)
@@ -63,9 +63,10 @@ def inference(model, X, mlb, cid="", batch_size=1, device="cpu"):
 
     # create df with cid, pred or target in rows
     # and in each column, the label is a column with the value being the probability
-    preds_df = pd.DataFrame(preds, index = cid, columns=mlb.classes_)
-    preds_df.index.name = "cid"
-    preds_df.reset_index(inplace=True)
+    preds_df = pd.DataFrame(columns = ["labels", "preds"])
+    preds_df["labels"] = mlb.classes_
+    preds_df["preds"] = preds[0]
+    # preds_df.reset_index(inplace=True)
 
     return preds_df
 
@@ -110,10 +111,10 @@ def main(args):
     preds_df = inference(model, X, mlb, cid, device=device)
 
     # transpose to get labels as rows
-    preds_df = preds_df.T
+    # preds_df = preds_df.T
 
     # save results to csv, sorted by probability
-    preds_df.sort_values(by=0, ascending=False, inplace=True)
+    preds_df = preds_df.sort_values(by="preds", ascending=False)
     preds_df.to_csv(save_path / "predictions.csv", index=False)
     
     print("Done! Thank you for your patience.")
