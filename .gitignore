@@ -9,7 +9,10 @@
 *.gephi
 *.txt
 *.json
+*.zip
+*.tsv
 _archive
+
 
 
 scripts/models/model_results
