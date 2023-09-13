@@ -124,7 +124,7 @@ def main():
     print(f"INFO: Using {(gpt_model:='gpt-4')} for model")
     print(f"INFO: Using {(n_cpus:=8)} CPUs")
 
-    api_key = "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"
+    api_key = ""
     gpt_system_prompt = "You are a PhD pharmaceutical chemist"
     gpt_user_prompt = f"""
         Pretend you are a pharmaceutical chemist. I will provide you with several terms, and your job is to summarize the terms into appropriate categories. Be succinct, focusing on the broadest categories while still being representative. Don't show your work.
