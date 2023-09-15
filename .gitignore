@@ -1,14 +1,10 @@
 *.DS_Store
 *.pkl
-*.html
-*.csv
 *.png
 *.tar.gz
 *.txt
 *.svg
 *.gephi
-*.txt
-*.json
 *.zip
 *.tsv
 *.xlsx
@@ -21,13 +17,18 @@ scripts/models/model_results
 scripts/surechembl_summarizations/*.csv
 data/*.csv
 data/*.txt
-results/*.csv
 results/*.pkl
 data/CID-InChI-Key
 data/CID-Patent
 data/CID-PMID
+data/drugs
 data/*.gz
-results/
+results/eps_diffs
+results/pre_final_files
+results/surechembl_smiles_canon_chiral_randomized_patents_l10p_summarizations
+scripts/models/inference
+scripts/visualization/mol_images
+scripts/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
