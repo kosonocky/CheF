@@ -1,0 +1,2 @@
+macro_roc_auc,weighted_roc_auc,macro_avg_prec,weighted_avg_prec
+0.8062849267907,0.7468046181590371,0.11699651563488883,0.18783031635147351
