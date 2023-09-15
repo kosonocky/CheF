@@ -1,6 +1,6 @@
-[![DOI](https://zenodo.org/badge/656230513.svg)](https://zenodo.org/badge/latestdoi/656230513)
-
 # Chemical Function (CheF) Dataset and Model
+
+[![DOI](https://zenodo.org/badge/656230513.svg)](https://zenodo.org/badge/latestdoi/656230513)
 
 **Mining Patents with Large Language Models Demonstrates Congruence of Functional Labels and Chemical Structures**
 
