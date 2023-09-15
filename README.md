@@ -1,4 +1,4 @@
-# CheF
+# Chemical Function (CheF) Dataset and Model
 
 Code and data from:
 
