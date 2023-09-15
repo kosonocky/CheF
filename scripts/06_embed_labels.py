@@ -1,7 +1,6 @@
 
 import pandas as pd
 import openai
-import time
 import multiprocessing as mp
 from itertools import repeat
 import backoff
@@ -25,7 +24,7 @@ def openai_embed_text(text, api_key, model = "text-embedding-ada-002"):
         openai.api_key = api_key
         response = completions_with_backoff(
             input=text,
-            model="text-embedding-ada-002"
+            model=model,
         )
         return response['data'][0]['embedding']
     except Exception as e:

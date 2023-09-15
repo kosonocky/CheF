@@ -1,18 +1,10 @@
 # NOTE The largest cluster is (likely always) a structural term cluster. This one results in API REQUEST ERROR, and will be manually fixed to 'structural' in the final results, which will be removed from the final results.
 
-import re
-import sys
 import time
-import requests
 import multiprocessing as mp
-from ast import literal_eval
 from itertools import repeat
 
 import pandas as pd
-from pathlib import Path
-from bs4 import BeautifulSoup
-from bs4.element import Comment
-from unidecode import unidecode
 
 import openai
 import backoff 
@@ -107,7 +99,7 @@ def label_summarization_wrapper(descriptors, api_key, model = "gpt-3.5-turbo", s
     user_prompt_complete = user_prompt.replace("__INSERT_DESCRIPTORS_HERE__", descriptors)
     
 
-    # ensure less than 4k tokens. Most are ~1k
+    # Unused code to ensure less than 4k tokens. Most are ~1k
     # enc = tiktoken.get_encoding("cl100k_base")
     # tok = enc.encode(user_prompt_complete)
     # user_prompt_complete = enc.decode(tok[:4000])

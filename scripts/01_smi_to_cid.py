@@ -1,8 +1,6 @@
 import time
 import pandas as pd
-
 from rdkit import Chem
-from collections import defaultdict
 
 def mol_to_inchi_key(smi):
     try:
@@ -14,7 +12,7 @@ def mol_to_inchi_key(smi):
 
 def main():
     t_curr = time.time()
-    df = pd.read_csv('../data/surechembl_smiles_canon_chiral_randomized.csv')
+    df = pd.read_csv('../data/surechembl_smiles_canon_chiral_randomized.csv') # cannot upload to github (too big). Must make from surechembl database
     df = df.rename(columns={"SMILES": "smiles"})
     print(f"Loaded smiles into dataframe. Time: {round(abs((t_old:=t_curr) - (t_curr:=time.time())), 3)} seconds\n")
 

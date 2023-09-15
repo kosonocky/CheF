@@ -1,19 +1,11 @@
 import time
-import argparse
 import pickle as pkl
 import pandas as pd
 pd.options.mode.chained_assignment = None  # default='warn'
 import numpy as np
-from collections import Counter
 from pathlib import Path
-from sklearn.preprocessing import MultiLabelBinarizer, StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import KFold
-from sklearn.metrics import roc_auc_score, average_precision_score
 
 import torch
-import torch.nn as nn
-from torch.optim import Adam
 from rdkit import Chem
 
 from train_fp_nn import load_model_device

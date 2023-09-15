@@ -4,12 +4,7 @@ import pickle as pkl
 import pandas as pd
 pd.options.mode.chained_assignment = None  # default='warn'
 import numpy as np
-from collections import Counter
 from pathlib import Path
-from sklearn.preprocessing import MultiLabelBinarizer, StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import KFold
-from sklearn.metrics import roc_auc_score, average_precision_score
 
 import torch
 import torch.nn as nn
@@ -66,7 +61,6 @@ def inference(model, X, mlb, cid="", batch_size=1, device="cpu"):
     preds_df = pd.DataFrame(columns = ["labels", "preds"])
     preds_df["labels"] = mlb.classes_
     preds_df["preds"] = preds[0]
-    # preds_df.reset_index(inplace=True)
 
     return preds_df
 

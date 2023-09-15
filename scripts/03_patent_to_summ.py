@@ -1,5 +1,4 @@
 import re
-import sys
 import time
 import requests
 import multiprocessing as mp
@@ -10,7 +9,6 @@ import pandas as pd
 from pathlib import Path
 from bs4 import BeautifulSoup
 from bs4.element import Comment
-from unidecode import unidecode
 
 import openai
 import tiktoken
@@ -224,7 +222,7 @@ def chatgpt(api_key, model = "gpt-3.5-turbo", system_prompt = "", user_prompt = 
         print(e)
         return "API REQUEST ERROR"
 
-def summarization_wrapper(patent_info, api_key, model = "gpt-3.5-turbo", system_prompt = "", user_prompt = "", desc_len = 1000, gpt_temperature=0, gpt_max_patents_per_mol=10):       
+def summarization_wrapper(patent_info, api_key, model = "gpt-3.5-turbo", system_prompt = "", user_prompt = "", desc_len = 1000, gpt_temperature=0):       
     """
     Wrapper function for chatgpt_summarization.
 
@@ -329,7 +327,7 @@ def main():
     gpt_temperature = 0
     gpt_model = "gpt-3.5-turbo"
     # gpt_model = "gpt-4"
-    api_key = "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"
+    api_key = ""
     gpt_summ_system_prompt = "You are an organic chemist summarizing chemical patents"
     gpt_summ_user_prompt = r"Return a short set of three 1-3 word descriptors that best describe the chemical or pharmacological function(s) of the molecule described by the given patent title, abstract, and partial description (giving more weight to title & abstract). Be specific and concise, but not necessarily comprehensive (choose a small number of great descriptor). Follow the syntax '{descriptor_1} / {descriptor_2} / {etc}', writing 'NA' if nothing is provided. DO NOT BREAK THIS SYNTAX. The following is the patent:"
     df = pd.read_csv('../data/surechembl_smiles_canon_chiral_randomized_patents_l10p_noNA.csv', nrows=head_n)

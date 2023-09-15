@@ -1,8 +1,6 @@
 
-import time
 import pandas as pd
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.cluster import DBSCAN
 from pathlib import Path
 from ast import literal_eval
@@ -30,12 +28,11 @@ def main():
     # perform dbscan clustering
     prev_set = set()
 
-    # for eps in range(5, 100, 5):
+    for eps in range(5, 100, 5):
     # for eps in range(30, 35, 1):
-    for eps in range(340, 341, 1):
+    # for eps in range(340, 341, 1):
         if eps == 0:
             continue
-        # eps_ = eps / 100
         eps_ = eps / 1000
         print(f"eps {eps_}")
         dbscan = DBSCAN(eps = eps_, min_samples = 1,n_jobs=-1)
@@ -69,15 +66,6 @@ def main():
 
     # NOTE Choosing eps of 34 because 35 resulted in a large kinase / non-kinase cluster that would be inaccurate.
     # NOTE From what I can tell, eps 34 has no major offenders
-
-
-
-    # # compute cosine sim
-    # cos_sim = cosine_similarity(arr, arr)
-    # # save in readable csv format, with labels as columns and index
-    # df_cos_sim = pd.DataFrame(cos_sim, columns = df['label'].tolist(), index = df['label'].tolist())
-    # df_cos_sim.to_csv("../results/surechembl_smiles_canon_chiral_randomized_patents_l10p_summarizations/surechembl_summarizations_top-100_gpt-3.5-turbo_desc-3500_cleaned_terms_cos_sim.csv")
-
 
 if __name__ == "__main__": 
     main()

@@ -1,18 +1,5 @@
-# NOTE The largest cluster is (likely always) a structural term cluster. This one results in API REQUEST ERROR, and will be manually fixed to 'structural' in the final results, which will be removed from the final results.
-
-import re
-import sys
 import time
-import requests
-import multiprocessing as mp
-from ast import literal_eval
-from itertools import repeat
-
 import pandas as pd
-from pathlib import Path
-from bs4 import BeautifulSoup
-from bs4.element import Comment
-from unidecode import unidecode
 
 import openai
 import backoff 
@@ -166,6 +153,7 @@ def main():
     
     
 
+    # NOTE unused in final analysis. Did not work as well as expected.
     gpt_user_prompt_2 = f"""{gpt_user_prompt.replace("__INSERT_DESCRIPTORS_HERE__", "")}
     __INSERT_DESCRIPTORS_HERE__
 

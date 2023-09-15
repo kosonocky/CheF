@@ -1,18 +1,10 @@
 # NOTE The largest cluster is (likely always) a structural term cluster. This one results in API REQUEST ERROR, and will be removed from the final results.
 
-import re
-import sys
 import time
-import requests
 import multiprocessing as mp
-from ast import literal_eval
 from itertools import repeat
 
 import pandas as pd
-from pathlib import Path
-from bs4 import BeautifulSoup
-from bs4.element import Comment
-from unidecode import unidecode
 
 import openai
 import backoff 

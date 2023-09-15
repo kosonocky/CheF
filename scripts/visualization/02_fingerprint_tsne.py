@@ -1,8 +1,6 @@
 from sklearn.manifold import TSNE
 import pandas as pd
-from rdkit import Chem
 import numpy as np
-from ast import literal_eval
 
 
 
