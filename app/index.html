@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Scatter Plot with D3.js and Dropdown</title>
+  <!-- Include D3.js library -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <!-- Include rdkit library -->
+    <!-- Load the RDKit JS file -->
+    <script src="https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"></script>
+
+    <!-- Instantiate the WASM module. The inline script below could live elsewhere inside your application code. -->
+    <script>
+      window
+        .initRDKitModule()
+        .then(function (RDKit) {
+          console.log("RDKit version: " + RDKit.version());
+          window.RDKit = RDKit;
+          /**
+           * The RDKit module is now loaded.
+           * You can use it anywhere.
+           */
+        })
+        .catch(() => {
+          console.log("Could not instantiate RDKit module.");
+        });
+    </script>
+  <style>
+    body {
+      font-family: sans-serif;
+    }
+
+    /* Custom styles for the plot and dropdown */
+    #container {
+      display: flex;
+      align-items: center;
+    }
+
+    #plot {
+      flex: 1;
+      max-width: 70%;
+      max-height: 70%;
+      position: relative;
+    }
+
+    #menuWrapper {
+      padding-left: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="plot"></div>
+    <div id="menuWrapper">
+      Highlight molecules with label:<br>
+      <select id="categoryDropdown">
+        <!-- The dropdown options will be populated here from the json data -->
+      </select><br><br>
+      <label for="zoomSlider">Zoom:</label>
+      <input type="range" id="zoomSlider" min="1" max="10" value="1" step="1"><br>
+      <button id="recenterButton">Recenter</button><br><br>
+      <label for="tooltipAllData">Tooltips on all data:</label>
+      <input type="checkbox" id="tooltipAllData" name="tooltipAllData" value="enabled"><br><br>
+    </div>
+  </div>
+
+  <!-- Tooltip container -->
+  <div id="tooltip" style="position: absolute; opacity: 0;"></div>
+
+  <script>
+    fetch('chef_v5_fp_tsne_p500.json')
+      .then(response => response.json())
+      .then(data => {
+        //console.log(data.slice(0, 10));
+
+        // find all unique labels, sort by occurrence
+        let labels = {};
+        data.forEach(d => {
+          d.summarizations.forEach(s => labels[s] = labels[s] ? labels[s] + 1 : 1);
+        });
+        labels = Object.keys(labels).map(k => ({'label': k, 'count': labels[k]})).sort((a, b) => b.count - a.count);
+        // populate dropdown menu
+        const dropdown = document.getElementById('categoryDropdown');
+        labels.forEach(value => {
+          const option = document.createElement('option');
+          option.value = value.label;
+          option.text = value.label + ' (n = ' + value.count + ')';
+          dropdown.appendChild(option);
+        });
+
+        // split data into background and foreground based on dropdown selection
+        const sortData = () => {
+          const category = d3.select('#categoryDropdown').node().value;
+          let fg = [];
+          let bg = [];
+          data.forEach(d => {
+            if (d.summarizations.includes(category)) {
+              d.isSelected = true;
+              fg.push(d);
+            } else {
+              d.isSelected = false;
+              bg.push(d);
+            }
+          });
+          return [...bg, ...fg];
+        }
+
+        const bgPointSize = 0.2; // Background point size
+        const fgPointSize = 0.3; // Foreground point size
+        const bgPointColor = 'gray'; // Background point color
+        const fgPointColor = 'blue'; // Foreground point color
+        
+        // Create the scatter plot
+        const plotDiv = document.getElementById('plot');
+        const svg = d3.select(plotDiv)
+          .append('svg')
+          .attr('width', '100%')
+          .attr('height', '100%')
+          .attr('viewBox', '0 0 100 100')
+          .attr('preserveAspectRatio', 'xMidYMid meet');
+
+        const expandRange = (range) => {
+          const rangeExpansion = 0.02;
+          const e = (range[1] - range[0]) * rangeExpansion;
+          return [range[0] - e, range[1] + e];
+        };
+
+        const xRange = expandRange([d3.min(data, d => d.fp_tsne_x), d3.max(data, d => d.fp_tsne_x)]);
+        const yRange = expandRange([d3.min(data, d => d.fp_tsne_y), d3.max(data, d => d.fp_tsne_y)]);
+        let panOffset = { x: 0, y: 0 };
+        let zoomFactor = 1;
+        
+        const calcRange = (range, zoomFactor, offset = 0) => {
+          let newRange = [range[0], range[1]];
+          if (zoomFactor) {
+            const center = (newRange[0] + newRange[1]) / 2 + offset;
+            const halfRange = (newRange[1] - newRange[0]) / 2;
+            newRange = [center - halfRange / zoomFactor, center + halfRange / zoomFactor];
+          }
+          return newRange;
+        };
+        const xScale = d3.scaleLinear()
+          .domain(calcRange(xRange))
+          .range([0, 100]);
+
+        const yScale = d3.scaleLinear()
+          .domain(calcRange(yRange))
+          .range([100, 0]);
+
+        const tooltipBuffer = 3; // how far is the tooltip shifted from the data point?
+        const renderTooltip = (event, d) => {
+          const mol = RDKit.get_mol(d.smiles);
+          const tooltip = `
+<div style="background-color: white; color: black; border: 1px solid black; border-radius: 5px; padding: 10px;">
+  <b>${d.cid}</b><br>
+  ${d.smiles}<br>
+  <div id="drawing">${mol.get_svg()}</div><br>
+  Labels: ${d.summarizations.join(', ')}
+</div>`;
+
+          d3.select('#tooltip')
+            .style('opacity', 1)
+            .html(tooltip)
+            .style('left', `${event.pageX + tooltipBuffer}px`)
+            .style('top', `${event.pageY + tooltipBuffer}px`);
+        };
+        
+        // circles making up the scatter plot
+        let circles = svg
+          .selectAll('circle')
+          .data(sortData())
+          .enter()
+          .append('circle')
+          .attr('fill', d => d.isSelected ? fgPointColor : bgPointColor)
+          .on('mouseover', (event, d) => {
+            if (document.getElementById('tooltipAllData').checked || d.isSelected) {
+              renderTooltip(event, d);
+            }
+          })
+          .on('mouseout', (event, d) => {
+            if (document.getElementById('tooltipAllData').checked || d.isSelected) {
+              d3.select('#tooltip')
+                .style('opacity', 0)
+               .style('left', '10000px') // move tooltip out of the way so it doesn't cover data points we may want to hover over
+               .style('top', '10000px');
+            }
+          });
+
+        const updateScales = () => {
+          const newScaleX = xScale.domain(calcRange(xRange, zoomFactor, panOffset.x));
+          const newScaleY = yScale.domain(calcRange(yRange, zoomFactor, panOffset.y));
+          const pointZoom = 1 + (zoomFactor - 1) / 4;
+          circles
+            .attr('r', d => d.isSelected ? fgPointSize * pointZoom : bgPointSize * pointZoom)
+            .attr("cx", d => newScaleX(d.fp_tsne_x))
+            .attr("cy", d => newScaleY(d.fp_tsne_y));
+        };
+        updateScales();
+
+        // Dropdown menu event handler
+        d3.select('#categoryDropdown').on('change', () => {
+          circles = svg
+            .selectAll('circle')
+            .data(sortData())
+            .join('circle')
+            .attr('fill', d => d.isSelected ? fgPointColor : bgPointColor);
+          updateScales();
+        });
+
+        // Zoom slider event handler
+        const zoomSlider = document.getElementById("zoomSlider");
+        zoomSlider.addEventListener("input", () => {
+            zoomFactor = parseFloat(zoomSlider.value);
+            updateScales();
+        });
+
+        // drag to pan event handler
+        svg.on("mousedown", (event) => {
+            const initialMousePos = d3.pointer(event);
+            const initialPanOffset = panOffset;
+            //console.log(initialMousePos);
+
+            const handleMouseMove = (event) => {
+                const currentMousePos = d3.pointer(event);
+                //console.log(currentMousePos);
+                const offsetX = currentMousePos[0] - initialMousePos[0];
+                const offsetY = currentMousePos[1] - initialMousePos[1];
+                const xextent = (xRange[1] - xRange[0]);
+                const yextent = (yRange[1] - yRange[0]);
+                
+                panOffset = { 
+                  x: initialPanOffset.x - (xextent / zoomFactor) * offsetX / 100,
+                  y: initialPanOffset.y + (yextent / zoomFactor) * offsetY / 100
+                };
+                //console.log(panOffset);
+                updateScales();
+            };
+
+            // register handler for mouse move and mouse up only after mouse down,
+            // and unregister all after mouse up
+            svg.on("mousemove", handleMouseMove);
+            svg.on("mouseup", () => {
+                svg.on("mousemove", null);
+                svg.on("mouseup", null);
+            });
+        });
+
+        // recenter button event handler
+        const recenterButton = document.getElementById('recenterButton');
+        recenterButton.addEventListener('click', () => {
+          panOffset = { x: 0, y: 0 };
+          updateScales();
+        });
+      });
+  </script>
+</body>
+</html>
