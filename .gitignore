@@ -4,7 +4,6 @@
 *.tar.gz
 *.txt
 *.svg
-*.gephi
 *.zip
 *.tsv
 *.xlsx
@@ -28,7 +27,6 @@ results/pre_final_files
 results/surechembl_smiles_canon_chiral_randomized_patents_l10p_summarizations
 scripts/models/inference
 scripts/visualization/mol_images
-scripts/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
