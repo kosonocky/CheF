@@ -33,7 +33,7 @@ def openai_embed_text(text, api_key, model = "text-embedding-ada-002"):
 
 
 def main():
-    api_key = "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"
+    api_key = ""
     with open("../results/schembl_summs_v3_alg_cleaned_vocab.txt") as f:
         labels = f.read().splitlines()
 
