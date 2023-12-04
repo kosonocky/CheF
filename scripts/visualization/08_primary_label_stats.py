@@ -4,6 +4,7 @@ from rdkit import DataStructs
 import numpy as np
 from ast import literal_eval
 from scipy import stats
+from scipy.stats import false_discovery_control
 
 
 def main():
@@ -36,7 +37,11 @@ def main():
         p_vals.append(p_val)
         n_mols.append(len(df_term))
 
-    df_p_values = pd.DataFrame({"label": all_labels, "t_stat": t_stats, "p_val": p_vals, "n_mols": n_mols})
+    # correct for multiple testing with FDR
+    p_vals_corrected = false_discovery_control(p_vals)
+
+
+    df_p_values = pd.DataFrame({"label": all_labels, "t_stat": t_stats, "p_val": p_vals, "p_val_corrected": p_vals_corrected, "n_mols": n_mols})
 
     df_p_values.to_csv("primary_label_t_test.csv", index=False)
 
