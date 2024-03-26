@@ -18,7 +18,7 @@ The CheF dataset can be found in /results/CheF_100K_final.csv
 
 ## Visualizer
 
-A visualization of the 100K molecule CheF dataset can be found at [chefdb.app](chefdb.app).
+A visualization of the 100K molecule CheF dataset can be found at [chefdb.app](https://chefdb.app).
 
 This visualization is a t-SNE projection of Daylight fingerprints obtained from RDKit and is colored based on whether or not that molecule contains a given label.
 
