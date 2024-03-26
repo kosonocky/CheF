@@ -54,17 +54,24 @@
     </div>
     <div id="menuWrapper">
       <div id="datasetTitle" style="font-weight: bold; font-size: 24px;">Chemical Function (CheF) Dataset Visualizer</div>
-      <div id="datasetDescription" style="white-space: pre-wrap; max-width: 500px;">From: "Mining Patents with Large Language Models Demonstrates Congruence of Functional Labels and Chemical Structures" (under review)</div>
-      <br><br>
+      <div id="datasetDescription" style="white-space: pre-wrap; max-width: 500px;">Visualizer for the CheF dataset described in: <i>Mining Patents with Large Language Models Demonstrates Congruence of Functional Labels and Chemical Structures</i> by Clayton W. Kosonocky, Claus O. Wilke, Edward M. Marcotte, & Andrew D. Ellington (under review)</div>
+      <br>
+      <div id="doi" style="white-space: pre-wrap; max-width: 500px;">DOI: <a href="https://doi.org/10.48550/arXiv.2309.08765">https://doi.org/10.48550/arXiv.2309.08765</a></div>
+      <br>
+      <!-- <div id="main" style="white-space: pre-wrap; max-width: 500px;"> -->
+      <div id="github" style="white-space: pre-wrap; max-width: 500px;">GitHub: <a href="https://github.com/kosonocky/CheF">https://github.com/kosonocky/CheF</a></div>
+      <br>
       Highlight molecules with label:<br>
       <select id="categoryDropdown">
         <!-- The dropdown options will be populated here from the json data -->
-      </select><br><br>
+      </select><br>
+      <br>
       <label for="zoomSlider">Zoom:</label>
       <input type="range" id="zoomSlider" min="1" max="10" value="1" step="1"><br>
       <button id="recenterButton">Recenter</button><br><br>
-      <label for="tooltipAllData">Tooltips on all data (regardless of highlight):</label>
+      <label for="tooltipAllData">Tooltips on all data (regardless of selected label):</label>
       <input type="checkbox" id="tooltipAllData" name="tooltipAllData" value="enabled"><br><br>
+      <!-- </div> -->
     </div>
   </div>
 
@@ -154,13 +161,17 @@
 
         const tooltipBuffer = 3; // how far is the tooltip shifted from the data point?
         const renderTooltip = (event, d) => {
+          const selectedCategory = document.getElementById('categoryDropdown').value;
+          let labelsHtml = d.summarizations.map(label =>
+            label === selectedCategory ? `<u>${label}</u>` : label // Apply bold styling if label matches selectedCategory
+          ).join(', ');
           const mol = RDKit.get_mol(d.smiles);
           const tooltip = `
 <div style="background-color: white; color: black; border: 1px solid black; border-radius: 5px; padding: 10px;">
-  <b>${d.cid}</b><br>
-  ${d.smiles}<br>
-  <div id="drawing">${mol.get_svg()}</div><br>
-  Labels: ${d.summarizations.join(', ')}
+  <b>PubChem CID</b>: ${d.cid}<br>
+  <b>SMILES</b>: ${d.smiles}<br>
+  <b>Labels</b>: ${labelsHtml}
+  <div id="drawing">${mol.get_svg()}</div>
 </div>`;
 
           d3.select('#tooltip')
