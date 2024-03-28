@@ -25,25 +25,36 @@
         });
     </script>
   <style>
+    html, body {
+      height: 100%; /* Set the height to fill the viewport */
+      margin: 0; /* Remove default margin */
+      overflow: hidden; /* Hide both scrollbars */
+    }
+    
     body {
       font-family: sans-serif;
     }
 
-    /* Custom styles for the plot and dropdown */
     #container {
       display: flex;
-      align-items: center;
+      /* align-items: center; */
+      height: 100%; /* Ensure container fills the available vertical space */
     }
 
     #plot {
-      flex: 1;
-      max-width: 50%;
-      max-height: 50%;
-      position: relative;
-    }
+    flex: 1;
+    max-width: 50%;
+    max-height: 50%;
+    position: relative;
+  }
 
     #menuWrapper {
+      /* display: flex; */
+      /* flex-direction: column; */
+      padding-top: 50px;
+      justify-content: center;
       padding-left: 20px;
+      /* flex: 1; */
     }
   </style>
 </head>
